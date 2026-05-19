@@ -9,13 +9,17 @@ export async function POST(req: NextRequest) {
   const { data: adminData } = await supabase.from("users").select("organization_id, role").eq("id", user.id).single();
   if (adminData?.role === "employee") return NextResponse.json({ error: "Sem permissão." }, { status: 403 });
 
-  const { name, email, job_title, salary, daily_hours, monthly_hours, compensation_type, lunch_break_minutes, admission_date, is_active } = await req.json();
+  const { name, email, password, job_title, salary, daily_hours, monthly_hours, compensation_type, lunch_break_minutes, admission_date, is_active } = await req.json();
+
+  if (!password || password.length < 6) {
+    return NextResponse.json({ error: "Senha obrigatória (mínimo 6 caracteres)." }, { status: 400 });
+  }
 
   const service = await createServiceClient();
 
   const { data: authUser, error: authError } = await service.auth.admin.createUser({
     email,
-    password: "Ponto@" + Math.random().toString(36).slice(2, 8),
+    password,
     email_confirm: true,
   });
   if (authError) return NextResponse.json({ error: `Erro ao criar usuário: ${authError.message}` }, { status: 400 });
@@ -41,7 +45,7 @@ export async function POST(req: NextRequest) {
     admission_date: admission_date || null,
   });
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, userId: authUser.user.id });
 }
 
 export async function PUT(req: NextRequest) {

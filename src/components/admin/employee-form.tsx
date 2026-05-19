@@ -39,12 +39,10 @@ export function EmployeeForm({
   const [photoPreview, setPhotoPreview] = useState<string | null>(
     employee?.facial_profile?.photo_url || null
   );
-  const [faceTrainStatus, setFaceTrainStatus] = useState<"idle" | "training" | "ok" | "photo_only" | "error">(() => {
-    if (!employee?.facial_profile) return "idle";
-    if (employee.facial_profile.face_descriptor) return "ok";
-    if (employee.facial_profile.photo_url) return "photo_only";
-    return "idle";
-  })();
+  const initialFaceStatus = employee?.facial_profile?.face_descriptor ? "ok" as const
+    : employee?.facial_profile?.photo_url ? "photo_only" as const
+    : "idle" as const;
+  const [faceTrainStatus, setFaceTrainStatus] = useState<"idle" | "training" | "ok" | "photo_only" | "error">(initialFaceStatus);
 
   const [formData, setFormData] = useState({
     name: employee?.name || "",
