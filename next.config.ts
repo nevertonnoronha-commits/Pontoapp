@@ -6,6 +6,11 @@ const nextConfig: NextConfig = {
       ...config.resolve.alias,
       canvas: false,
     };
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      encoding: false,
+    };
     return config;
   },
 };
