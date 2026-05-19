@@ -3,29 +3,24 @@ import { createServiceClient } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   const supabase = await createServiceClient();
+  const body = await req.json().catch(() => ({}));
+  const userId = body.userId as string;
+  const email = body.email as string;
+  const name = body.name || "Funcionário Teste";
+
+  if (!userId || !email) {
+    return NextResponse.json({ error: "userId e email são obrigatórios" }, { status: 400 });
+  }
 
   try {
-    // 1. Criar usuário no auth
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: "joao@example.com",
-      password: "Teste@123456",
-      email_confirm: true,
-    });
-
-    if (authError) {
-      return NextResponse.json({ error: authError.message }, { status: 400 });
-    }
-
-    const userId = authData.user.id;
-
-    // 2. Criar usuário no banco
+    // 1. Criar usuário no banco
     const { error: userError } = await supabase
       .from("users")
       .insert({
         id: userId,
         organization_id: "a9d801a7-7953-4508-97a3-6a87ad130036",
-        name: "João Teste",
-        email: "joao@example.com",
+        name,
+        email,
         role: "employee",
         is_active: true,
       });
@@ -34,13 +29,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: userError.message }, { status: 400 });
     }
 
-    // 3. Criar perfil
+    // 2. Criar perfil
     const { error: profileError } = await supabase
       .from("employee_profiles")
       .insert({
         user_id: userId,
         organization_id: "a9d801a7-7953-4508-97a3-6a87ad130036",
-        job_title: "Vendedor",
+        job_title: "Funcionário",
         salary: 2500,
         daily_hours: 8,
         monthly_hours: 220,
@@ -55,12 +50,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Funcionário de teste criado com sucesso!",
-      user: {
-        id: userId,
-        email: "joao@example.com",
-        password: "Teste@123456",
-      },
+      message: "Funcionário criado com sucesso!",
+      user: { id: userId, email, name },
     });
   } catch (error) {
     return NextResponse.json(
