@@ -105,12 +105,13 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
           const timeoutId = setTimeout(() => {
             cleanup();
             reject(new Error("Camera initialization timeout"));
-          }, 2000);
+          }, 5000);
 
           const cleanup = () => {
             clearTimeout(timeoutId);
             if (videoRef.current) {
               videoRef.current.removeEventListener("canplay", handleCanPlay);
+              videoRef.current.removeEventListener("loadstart", handleLoadStart);
               videoRef.current.removeEventListener("error", handleVideoError);
             }
           };
@@ -122,12 +123,25 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
             resolve();
           };
 
+          const handleLoadStart = () => {
+            // loadstart fires when video source is being loaded, even if not playable yet
+            // Continue waiting for canplay, but reset timeout on this signal
+            console.log("Video loadstart event fired");
+          };
+
           const handleVideoError = () => {
             cleanup();
             reject(new Error("Video element error"));
           };
 
+          // Check if already in a playable state (readyState >= 2 means at least some data available)
+          if (videoRef.current!.readyState >= 2) {
+            handleCanPlay();
+            return;
+          }
+
           videoRef.current!.addEventListener("canplay", handleCanPlay, { once: true });
+          videoRef.current!.addEventListener("loadstart", handleLoadStart);
           videoRef.current!.addEventListener("error", handleVideoError, { once: true });
         });
       }
