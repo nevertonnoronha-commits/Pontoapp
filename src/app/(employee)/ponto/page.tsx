@@ -14,10 +14,11 @@ import { FaceVerify, type FaceVerifyResult } from "@/components/employee/face-ve
 type LocationState = { status: "checking" | "ok" | "error"; distance?: number; message?: string };
 type PunchState = "idle" | "registering" | "success" | "error";
 
+// entry/lunch_return = clocking in (green), exit/lunch_out = clocking out (gray)
 const PUNCH_COLORS: Record<PunchType | "complete", string> = {
   entry: "bg-green-600 hover:bg-green-700",
-  lunch_out: "bg-amber-600 hover:bg-amber-700",
-  lunch_return: "bg-blue-600 hover:bg-blue-700",
+  lunch_return: "bg-green-600 hover:bg-green-700",
+  lunch_out: "bg-gray-700 hover:bg-gray-800",
   exit: "bg-gray-700 hover:bg-gray-800",
   complete: "bg-gray-100",
 };
@@ -27,7 +28,7 @@ export default function PontoPage() {
   const [storeConfig, setStoreConfig] = useState<StoreConfig | null>(null);
   const [location, setLocation] = useState<LocationState>({ status: "checking" });
   const [wifiConfirmed, setWifiConfirmed] = useState(false);
-  const [nextPunch, setNextPunch] = useState<PunchType | "complete" | null>(null);
+  const [nextPunch, setNextPunch] = useState<PunchType | null>(null);
   const [punchState, setPunchState] = useState<PunchState>("idle");
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -74,7 +75,8 @@ export default function PontoPage() {
       .limit(1);
 
     const lastType = records?.[0]?.punch_type as PunchType | undefined;
-    setNextPunch(getNextPunchType(lastType || null));
+    const next = getNextPunchType(lastType || null);
+    setNextPunch(next === "complete" ? "entry" : next);
   }, []);
 
   const checkLocation = useCallback(async (config: StoreConfig) => {
@@ -95,7 +97,7 @@ export default function PontoPage() {
   useEffect(() => { if (storeConfig) checkLocation(storeConfig); }, [storeConfig, checkLocation]);
 
   function handleStartPunch() {
-    if (!nextPunch || nextPunch === "complete" || location.status !== "ok" || !wifiConfirmed) return;
+    if (!nextPunch || location.status !== "ok" || !wifiConfirmed) return;
     if (hasFacialProfile && !faceResult) {
       setShowFaceVerify(true);
       return;
@@ -119,7 +121,7 @@ export default function PontoPage() {
   }
 
   async function executePunch(face?: FaceVerifyResult) {
-    if (!nextPunch || nextPunch === "complete") return;
+    if (!nextPunch) return;
     setPunchState("registering");
     setErrorMsg("");
     const faceVerified = face?.verified === true;
@@ -154,7 +156,7 @@ export default function PontoPage() {
     }
   }
 
-  const canPunch = location.status === "ok" && wifiConfirmed && !!nextPunch && nextPunch !== "complete";
+  const canPunch = location.status === "ok" && wifiConfirmed && !!nextPunch;
   const isIdle = punchState === "idle";
 
   return (
@@ -275,14 +277,6 @@ export default function PontoPage() {
               </div>
               <div className="font-bold text-red-800">{errorMsg}</div>
             </div>
-          ) : nextPunch === "complete" ? (
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center space-y-2">
-              <div className="flex justify-center mb-2">
-                <CircleCheckBig size={48} className="text-gray-400" strokeWidth={1.5} />
-              </div>
-              <div className="font-semibold text-gray-600">Jornada completa!</div>
-              <div className="text-sm text-gray-400">Todos os registros do dia foram realizados.</div>
-            </div>
           ) : (
             <button
               onClick={handleStartPunch}
@@ -307,7 +301,7 @@ export default function PontoPage() {
       )}
 
       {/* Hints */}
-      {!wifiConfirmed && nextPunch !== "complete" && isIdle && !showFaceVerify && (
+      {!wifiConfirmed && isIdle && !showFaceVerify && (
         <p className="text-center text-xs text-amber-600">
           Confirme a conexão WiFi para habilitar o registro
         </p>

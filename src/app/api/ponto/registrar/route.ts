@@ -5,7 +5,13 @@ import { calculateWorkday } from "@/lib/hours";
 import { registerPunchSchema } from "@/lib/validations";
 import type { PunchType } from "@/types";
 
-const PUNCH_SEQUENCE: PunchType[] = ["entry", "lunch_out", "lunch_return", "exit"];
+// Maps punch type to "in" or "out" for alternation validation
+const PUNCH_DIRECTION: Record<PunchType, "in" | "out"> = {
+  entry: "in",
+  lunch_return: "in",
+  lunch_out: "out",
+  exit: "out",
+};
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -43,20 +49,23 @@ export async function POST(req: NextRequest) {
     .eq("user_id", user.id)
     .gte("recorded_at", today + "T00:00:00")
     .order("recorded_at", { ascending: false })
-    .limit(10);
+    .limit(20);
 
   const lastPunch = todayRecords?.[0]?.punch_type as PunchType | undefined;
-  const lastIdx = lastPunch ? PUNCH_SEQUENCE.indexOf(lastPunch) : -1;
-  const nextIdx = lastIdx + 1;
+  const lastDirection = lastPunch ? PUNCH_DIRECTION[lastPunch] : null;
+  const incomingDirection = PUNCH_DIRECTION[punch_type];
 
-  if (nextIdx >= PUNCH_SEQUENCE.length) {
-    return NextResponse.json({ error: "Jornada já concluída hoje." }, { status: 400 });
+  // Must alternate: if last was "in", next must be "out" and vice versa
+  if (lastDirection === incomingDirection) {
+    const msg = incomingDirection === "in"
+      ? "Você já está registrado como presente. Registre uma saída primeiro."
+      : "Você já está registrado como ausente. Registre uma entrada primeiro.";
+    return NextResponse.json({ error: msg }, { status: 400 });
   }
 
-  if (PUNCH_SEQUENCE[nextIdx] !== punch_type) {
-    const expected = PUNCH_SEQUENCE[nextIdx];
-    const labels: Record<PunchType, string> = { entry: "Entrada", lunch_out: "Saída para Almoço", lunch_return: "Retorno do Almoço", exit: "Saída Final" };
-    return NextResponse.json({ error: `Ação inválida. O próximo registro deve ser: ${labels[expected]}.` }, { status: 400 });
+  // First punch of the day must be an entry
+  if (!lastPunch && incomingDirection !== "in") {
+    return NextResponse.json({ error: "O primeiro registro do dia deve ser uma entrada." }, { status: 400 });
   }
 
   let status = "valid";
@@ -110,35 +119,34 @@ async function recalcWorkday(service: Awaited<ReturnType<typeof createServiceCli
     .gte("recorded_at", date + "T00:00:00")
     .order("recorded_at", { ascending: true });
 
-  if (!records) return;
-
-  const get = (type: PunchType) => records.find((r) => r.punch_type === type)?.recorded_at || null;
-  const entry = get("entry");
-  const lunchOut = get("lunch_out");
-  const lunchReturn = get("lunch_return");
-  const exit = get("exit");
+  if (!records || records.length === 0) return;
 
   const { data: profile } = await service.from("employee_profiles").select("*").eq("user_id", userId).single();
   const dailyHours = profile?.daily_hours || 8;
   const salary = profile?.salary || 0;
   const monthlyHours = profile?.monthly_hours || 176;
 
-  const calc = calculateWorkday(entry, lunchOut, lunchReturn, exit, dailyHours, salary, monthlyHours);
+  const calc = calculateWorkday(records, dailyHours, salary, monthlyHours);
+
+  // First entry and last exit of the day for reference columns
+  const firstEntry = records.find((r) => r.punch_type === "entry" || r.punch_type === "lunch_return");
+  const lastExit = [...records].reverse().find((r) => r.punch_type === "exit" || r.punch_type === "lunch_out");
+  const isCurrentlyOut = lastExit && (!firstEntry || new Date(lastExit.recorded_at) > new Date(firstEntry.recorded_at));
 
   await service.from("workday_summaries").upsert({
     user_id: userId,
     organization_id: orgId,
     work_date: date,
-    entry_time: entry,
-    lunch_out_time: lunchOut,
-    lunch_return_time: lunchReturn,
-    exit_time: exit,
+    entry_time: records.find((r) => r.punch_type === "entry")?.recorded_at || null,
+    lunch_out_time: records.find((r) => r.punch_type === "lunch_out")?.recorded_at || null,
+    lunch_return_time: records.find((r) => r.punch_type === "lunch_return")?.recorded_at || null,
+    exit_time: [...records].reverse().find((r) => r.punch_type === "exit" || r.punch_type === "lunch_out")?.recorded_at || null,
     hours_worked: calc.hours_worked,
     hours_expected: dailyHours,
     overtime_hours: calc.overtime_hours,
     bank_balance: calc.bank_balance,
     overtime_value: calc.overtime_value,
-    is_complete: !!exit,
+    is_complete: !!isCurrentlyOut,
     updated_at: new Date().toISOString(),
   }, { onConflict: "user_id,work_date" });
 }

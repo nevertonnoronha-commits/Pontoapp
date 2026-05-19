@@ -223,11 +223,11 @@ export type FaceStatus =
   | "verified"
   | "failed";
 
-// Next punch label mapping
+// Simple in/out labels — entry means clocking in, exit means clocking out
 export const PUNCH_TYPE_LABELS: Record<PunchType | "complete", string> = {
   entry: "Registrar Entrada",
-  lunch_out: "Saída para Almoço",
-  lunch_return: "Retorno do Almoço",
+  lunch_out: "Registrar Saída",
+  lunch_return: "Registrar Entrada",
   exit: "Registrar Saída",
   complete: "Jornada Concluída",
 };
@@ -239,11 +239,17 @@ export const PUNCH_TYPE_SEQUENCE: PunchType[] = [
   "exit",
 ];
 
+// Simple alternation: clocked-out → entry, clocked-in → exit
 export function getNextPunchType(
   lastPunchType: PunchType | null
 ): PunchType | "complete" {
   if (!lastPunchType) return "entry";
-  const idx = PUNCH_TYPE_SEQUENCE.indexOf(lastPunchType);
-  if (idx === -1 || idx === PUNCH_TYPE_SEQUENCE.length - 1) return "complete";
-  return PUNCH_TYPE_SEQUENCE[idx + 1];
+  const clockedOut = lastPunchType === "exit" || lastPunchType === "lunch_out";
+  if (clockedOut) return "entry";
+  return "exit";
+}
+
+export function isClockedIn(lastPunchType: PunchType | null): boolean {
+  if (!lastPunchType) return false;
+  return lastPunchType === "entry" || lastPunchType === "lunch_return";
 }

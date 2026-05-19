@@ -1,43 +1,43 @@
 import type { WorkdayCalculation, MonthlyTotals, WorkdaySummary } from "@/types";
 
 /**
- * Calculate workday hours from punch timestamps.
- * All times are ISO strings or null.
+ * Calculate workday hours from a list of punch records.
+ * Supports multiple entry/exit cycles in the same day.
+ * Pairs each "entry" or "lunch_return" with the next "exit" or "lunch_out".
  */
 export function calculateWorkday(
-  entryTime: string | null,
-  lunchOutTime: string | null,
-  lunchReturnTime: string | null,
-  exitTime: string | null,
+  records: { punch_type: string; recorded_at: string }[],
   dailyHours: number,
   salary: number,
   monthlyHours: number
 ): WorkdayCalculation {
-  if (!entryTime || !exitTime) {
-    return {
-      hours_worked: 0,
-      overtime_hours: 0,
-      bank_balance: 0,
-      overtime_value: 0,
-    };
+  const sorted = [...records].sort(
+    (a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime()
+  );
+
+  let totalWorkMs = 0;
+  let lastEntryMs: number | null = null;
+
+  for (const rec of sorted) {
+    const t = new Date(rec.recorded_at).getTime();
+    const isIn = rec.punch_type === "entry" || rec.punch_type === "lunch_return";
+    const isOut = rec.punch_type === "exit" || rec.punch_type === "lunch_out";
+
+    if (isIn) {
+      lastEntryMs = t;
+    } else if (isOut && lastEntryMs !== null) {
+      totalWorkMs += t - lastEntryMs;
+      lastEntryMs = null;
+    }
   }
 
-  const entry = new Date(entryTime).getTime();
-  const exit = new Date(exitTime).getTime();
-
-  let lunchBreakMs = 0;
-  if (lunchOutTime && lunchReturnTime) {
-    const lunchOut = new Date(lunchOutTime).getTime();
-    const lunchReturn = new Date(lunchReturnTime).getTime();
-    lunchBreakMs = lunchReturn - lunchOut;
+  if (totalWorkMs === 0) {
+    return { hours_worked: 0, overtime_hours: 0, bank_balance: 0, overtime_value: 0 };
   }
 
-  const totalWorkMs = exit - entry - lunchBreakMs;
-  const hours_worked = Math.max(0, totalWorkMs / (1000 * 60 * 60));
-
+  const hours_worked = totalWorkMs / (1000 * 60 * 60);
   const overtime_hours = Math.max(0, hours_worked - dailyHours);
   const bank_balance = hours_worked - dailyHours;
-
   const hourly_rate = monthlyHours > 0 ? salary / monthlyHours : 0;
   const overtime_value = overtime_hours * hourly_rate;
 
