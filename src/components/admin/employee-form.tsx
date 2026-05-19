@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { Camera, Upload, Loader2 } from "lucide-react";
+import { Camera, Upload, Loader2, CheckCircle2 } from "lucide-react";
 import type { UserWithProfile } from "@/types";
 
 interface EmployeeFormProps {
@@ -38,6 +38,9 @@ export function EmployeeForm({
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(
     employee?.facial_profile?.photo_url || null
+  );
+  const [faceTrainStatus, setFaceTrainStatus] = useState<"idle" | "training" | "ok" | "photo_only" | "error">(
+    employee?.facial_profile?.face_descriptor ? "ok" : "idle"
   );
 
   const [formData, setFormData] = useState({
@@ -96,60 +99,47 @@ export function EmployeeForm({
       }
 
       // Upload facial photo if provided
-      if (photoFile && result.userId) {
+      if (photoFile && (result.userId || employee?.id)) {
         const userId = result.userId || employee?.id;
         const fileName = `${userId}/profile-${Date.now()}.jpg`;
+        setFaceTrainStatus("training");
 
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("face-photos")
-          .upload(fileName, photoFile, {
-            contentType: photoFile.type,
-            upsert: true,
-          });
+          .upload(fileName, photoFile, { contentType: photoFile.type, upsert: true });
 
         if (!uploadError && uploadData) {
-          const {
-            data: { publicUrl },
-          } = supabase.storage.from("face-photos").getPublicUrl(uploadData.path);
+          const { data: { publicUrl } } = supabase.storage.from("face-photos").getPublicUrl(uploadData.path);
 
-          // Process facial descriptor with face-api.js
           try {
             const faceapi = await import("face-api.js");
-            const MODEL_URL = "/models";
-
-            if (!faceapi.nets.tinyFaceDetector.params) {
+            if (!faceapi.nets.tinyFaceDetector.isLoaded) {
               await Promise.all([
-                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                faceapi.nets.tinyFaceDetector.loadFromUri("/models"),
+                faceapi.nets.faceRecognitionNet.loadFromUri("/models"),
+                faceapi.nets.faceLandmark68Net.loadFromUri("/models"),
               ]);
             }
-
             const img = document.createElement("img");
             img.src = URL.createObjectURL(photoFile);
-            await new Promise((res) => {
-              img.onload = res;
-            });
+            await new Promise<void>((res) => { img.onload = () => res(); });
 
             const detection = await faceapi
-              .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions())
+              .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.3 }))
               .withFaceLandmarks()
               .withFaceDescriptor();
 
-            if (detection) {
-              const descriptor = Array.from(detection.descriptor);
+            await supabase.from("facial_profiles").upsert({
+              user_id: userId,
+              organization_id: organizationId,
+              face_descriptor: detection ? Array.from(detection.descriptor) : null,
+              photo_url: publicUrl,
+              trained_at: new Date().toISOString(),
+              is_active: true,
+            }, { onConflict: "user_id" });
 
-              await supabase.from("facial_profiles").upsert({
-                user_id: userId,
-                organization_id: organizationId,
-                face_descriptor: descriptor,
-                photo_url: publicUrl,
-                trained_at: new Date().toISOString(),
-                is_active: true,
-              });
-            }
+            setFaceTrainStatus(detection ? "ok" : "photo_only");
           } catch {
-            // Facial processing failed but photo was uploaded
             await supabase.from("facial_profiles").upsert({
               user_id: userId,
               organization_id: organizationId,
@@ -157,8 +147,11 @@ export function EmployeeForm({
               photo_url: publicUrl,
               trained_at: new Date().toISOString(),
               is_active: true,
-            });
+            }, { onConflict: "user_id" });
+            setFaceTrainStatus("photo_only");
           }
+        } else {
+          setFaceTrainStatus("error");
         }
       }
 
@@ -368,45 +361,55 @@ export function EmployeeForm({
 
       {/* Facial photo */}
       <div className="bg-white rounded-xl border border-gray-100 p-6 space-y-4">
-        <h3 className="font-semibold text-gray-800">Foto para Reconhecimento Facial</h3>
-        <p className="text-sm text-gray-500">
-          Envie uma foto clara do rosto do funcionário para usar no reconhecimento facial.
-        </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="font-semibold text-gray-800">Reconhecimento Facial</h3>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Foto do rosto para verificar identidade ao bater ponto.
+            </p>
+          </div>
+          {faceTrainStatus === "ok" && (
+            <span className="flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-1 shrink-0">
+              <CheckCircle2 className="h-3 w-3" />Treinado
+            </span>
+          )}
+          {faceTrainStatus === "photo_only" && (
+            <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1 shrink-0">Foto salva</span>
+          )}
+          {faceTrainStatus === "training" && (
+            <span className="flex items-center gap-1 text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded-full px-2.5 py-1 shrink-0">
+              <Loader2 className="h-3 w-3 animate-spin" />Treinando...
+            </span>
+          )}
+        </div>
 
-        <div className="flex items-start gap-4">
-          {/* Preview */}
+        <div className="flex items-center gap-4">
           <div className="h-24 w-24 rounded-xl bg-gray-100 border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden shrink-0">
             {photoPreview ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={photoPreview}
-                alt="Foto"
-                className="w-full h-full object-cover"
-              />
+              <img src={photoPreview} alt="Foto" className="w-full h-full object-cover" />
             ) : (
               <Camera className="h-8 w-8 text-gray-300" />
             )}
           </div>
-
-          <div>
+          <div className="space-y-2">
             <label htmlFor="photo-upload" className="cursor-pointer">
               <div className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
                 <Upload className="h-4 w-4" />
                 {photoPreview ? "Trocar foto" : "Enviar foto"}
               </div>
             </label>
-            <input
-              id="photo-upload"
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handlePhotoChange}
-            />
-            <p className="text-xs text-gray-400 mt-2">
-              JPG, PNG ou WebP. Máx 5MB.
-            </p>
+            <input id="photo-upload" type="file" accept="image/*" capture="user" className="hidden" onChange={handlePhotoChange} />
+            <p className="text-xs text-gray-400">JPG, PNG ou WebP · máx 5MB</p>
+            <p className="text-xs text-gray-400">Use foto frontal, bem iluminada</p>
           </div>
         </div>
+
+        {faceTrainStatus === "photo_only" && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800">
+            Rosto não detectado na foto. Use uma foto frontal com boa iluminação. O reconhecimento não estará ativo para este funcionário.
+          </div>
+        )}
       </div>
 
       {/* Submit */}
