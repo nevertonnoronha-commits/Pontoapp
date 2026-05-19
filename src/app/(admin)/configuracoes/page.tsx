@@ -2,6 +2,17 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentPosition } from "@/lib/geo";
+import {
+  Store,
+  Wifi,
+  MapPin,
+  Navigation,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Save,
+  Info,
+} from "lucide-react";
 
 export default function ConfiguracoesPage() {
   const [form, setForm] = useState({
@@ -67,7 +78,7 @@ export default function ConfiguracoesPage() {
     const lat = parseFloat(form.gps_latitude);
     const lon = parseFloat(form.gps_longitude);
     if (!form.gps_latitude || !form.gps_longitude || isNaN(lat) || isNaN(lon)) {
-      setError("Latitude e longitude são obrigatórias. Use o botão '📌 Usar minha localização atual'.");
+      setError("Latitude e longitude são obrigatórias. Use o botão para capturar sua localização atual.");
       return;
     }
 
@@ -93,93 +104,131 @@ export default function ConfiguracoesPage() {
     setSaving(false);
   }
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Carregando...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center space-y-3">
+          <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-gray-500">Carregando configurações...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-800">Configurações da Loja</h1>
-        <p className="text-sm text-gray-500 mt-1">Defina o WiFi e a localização onde os funcionários podem bater ponto.</p>
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Configurações da Loja</h1>
+        <p className="text-sm text-gray-500 mt-0.5">
+          Defina o WiFi e a localização onde os funcionários podem bater ponto.
+        </p>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+      <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-6">
 
-        {/* Nome da loja */}
+        {/* Store name */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">🏪 Nome da Loja <span className="text-red-500">*</span></label>
+          <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-2">
+            <Store size={15} className="text-gray-400" />
+            Nome da Loja
+            <span className="text-red-500 ml-0.5">*</span>
+          </label>
           <input
             type="text"
             value={form.store_name}
             onChange={(e) => setForm((f) => ({ ...f, store_name: e.target.value }))}
             placeholder="Ex: Loja da Dona Maria"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
           />
         </div>
 
         {/* WiFi */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">📶 Nome do WiFi da loja (SSID)</label>
+          <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-2">
+            <Wifi size={15} className="text-gray-400" />
+            Nome da Rede WiFi (SSID)
+          </label>
           <input
             type="text"
             value={form.wifi_ssid}
             onChange={(e) => setForm((f) => ({ ...f, wifi_ssid: e.target.value }))}
             placeholder="Ex: MinhaLoja-WiFi"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
           />
-          <p className="text-xs text-gray-400 mt-1">O funcionário precisará confirmar que está nessa rede ao bater ponto.</p>
+          <p className="text-xs text-gray-400 mt-1.5">
+            O funcionário confirmará manualmente que está nessa rede ao registrar o ponto.
+          </p>
         </div>
 
         {/* GPS */}
         <div className="space-y-3">
-          <label className="block text-sm font-medium text-gray-700">📍 Localização da Loja <span className="text-red-500">*</span></label>
+          <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+            <MapPin size={15} className="text-gray-400" />
+            Localização da Loja
+            <span className="text-red-500 ml-0.5">*</span>
+          </label>
 
           <button
             type="button"
             onClick={useCurrentLocation}
             disabled={locating}
-            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-lg py-2.5 text-sm font-medium transition-colors"
+            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors flex items-center justify-center gap-2"
           >
-            {locating ? "⏳ Obtendo localização..." : "📌 Usar minha localização atual"}
+            {locating ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Obtendo localização...
+              </>
+            ) : (
+              <>
+                <Navigation size={16} />
+                Usar minha localização atual
+              </>
+            )}
           </button>
 
           {form.gps_latitude && form.gps_longitude ? (
-            <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800">
-              ✅ Localização definida: {parseFloat(form.gps_latitude).toFixed(5)}, {parseFloat(form.gps_longitude).toFixed(5)}
+            <div className="flex items-center gap-2.5 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-800">
+              <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+              Localização definida: {parseFloat(form.gps_latitude).toFixed(5)}, {parseFloat(form.gps_longitude).toFixed(5)}
             </div>
           ) : (
-            <p className="text-xs text-amber-600">⚠️ Localização não definida. Clique no botão acima estando na loja.</p>
+            <div className="flex items-center gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
+              <AlertCircle size={16} className="text-amber-600 shrink-0" />
+              Localização não definida. Clique no botão acima estando na loja.
+            </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Latitude (manual)</label>
+              <label className="block text-xs text-gray-500 mb-1.5">Latitude (manual)</label>
               <input
                 type="number"
                 step="any"
                 value={form.gps_latitude}
                 onChange={(e) => setForm((f) => ({ ...f, gps_latitude: e.target.value }))}
                 placeholder="-12.345678"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Longitude (manual)</label>
+              <label className="block text-xs text-gray-500 mb-1.5">Longitude (manual)</label>
               <input
                 type="number"
                 step="any"
                 value={form.gps_longitude}
                 onChange={(e) => setForm((f) => ({ ...f, gps_longitude: e.target.value }))}
                 placeholder="-38.123456"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
               />
             </div>
           </div>
         </div>
 
-        {/* Raio */}
+        {/* Radius */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            🔵 Raio permitido: <strong className="text-green-700">{form.gps_radius_meters}m</strong>
+            Raio permitido: <span className="text-green-700 font-bold">{form.gps_radius_meters}m</span>
           </label>
           <input
             type="range"
@@ -191,38 +240,67 @@ export default function ConfiguracoesPage() {
             className="w-full accent-green-600"
           />
           <div className="flex justify-between text-xs text-gray-400 mt-1">
-            <span>50m (muito preciso)</span>
+            <span>50m (preciso)</span>
             <span>500m (flexível)</span>
           </div>
-          <p className="text-xs text-gray-400 mt-1">Distância máxima da loja para bater ponto. Recomendado: 100–200m.</p>
+          <p className="text-xs text-gray-400 mt-1.5">
+            Distância máxima da loja para registrar ponto. Recomendado: 100–200m.
+          </p>
         </div>
 
+        {/* Feedback */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">
-            ❌ {error}
+          <div className="flex items-start gap-2.5 bg-red-50 border border-red-100 text-red-700 rounded-xl px-4 py-3 text-sm">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            {error}
           </div>
         )}
         {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 rounded-lg px-4 py-3 text-sm">
-            ✅ Configurações salvas com sucesso!
+          <div className="flex items-center gap-2.5 bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm">
+            <CheckCircle2 size={16} className="shrink-0" />
+            Configurações salvas com sucesso!
           </div>
         )}
 
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full bg-amber-800 hover:bg-amber-900 disabled:bg-amber-400 text-white font-semibold rounded-lg py-3 text-sm transition-colors"
+          className="w-full bg-amber-900 hover:bg-amber-950 disabled:bg-amber-400 text-white font-semibold rounded-xl py-3 text-sm transition-colors flex items-center justify-center gap-2"
         >
-          {saving ? "Salvando..." : "💾 Salvar Configurações"}
+          {saving ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              Salvando...
+            </>
+          ) : (
+            <>
+              <Save size={16} />
+              Salvar Configurações
+            </>
+          )}
         </button>
       </div>
 
       {/* Info box */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800 space-y-1">
-        <div className="font-semibold mb-2">ℹ️ Como funciona:</div>
-        <div>• O funcionário só pode bater ponto dentro do raio definido aqui</div>
-        <div>• O WiFi é confirmado manualmente pelo funcionário no momento do ponto</div>
-        <div>• Use o botão de localização <strong>estando dentro da loja</strong> para precisão máxima</div>
+      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5">
+        <div className="flex items-center gap-2 font-semibold text-blue-800 text-sm mb-3">
+          <Info size={16} />
+          Como funciona
+        </div>
+        <div className="text-sm text-blue-700 space-y-2">
+          <div className="flex items-start gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+            O funcionário só pode registrar ponto dentro do raio definido aqui.
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+            O WiFi é confirmado manualmente pelo funcionário no momento do ponto.
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+            Use o botão de localização <strong>estando dentro da loja</strong> para precisão máxima.
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AdminNav from "@/components/layout/admin-nav";
+import { Logo } from "@/components/shared/logo";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -16,11 +17,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="min-h-screen bg-gray-50 flex">
       <AdminNav userName={userData?.name || ""} />
       <div className="flex-1 flex flex-col lg:ml-64">
-        <header className="bg-white border-b border-gray-200 px-6 py-4 lg:hidden flex items-center gap-2">
-          <span className="text-2xl">🦎</span>
-          <span className="font-bold text-green-700">PontoApp Admin</span>
+        {/* Mobile header */}
+        <header className="bg-amber-900 text-white px-5 py-3.5 lg:hidden flex items-center justify-between">
+          <Logo size="sm" variant="light" />
+          <span className="text-sm text-amber-200/80">{userData?.name}</span>
         </header>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-5 pb-24 lg:pb-8">{children}</main>
       </div>
     </div>
   );

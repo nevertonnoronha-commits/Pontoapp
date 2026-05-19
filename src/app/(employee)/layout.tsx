@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import EmployeeNav from "@/components/layout/employee-nav";
+import { Logo } from "@/components/shared/logo";
 
 export default async function EmployeeLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -14,12 +15,9 @@ export default async function EmployeeLayout({ children }: { children: React.Rea
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-green-700 text-white px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">🦎</span>
-          <span className="font-bold text-lg">PontoApp</span>
-        </div>
-        <span className="text-sm opacity-90">{userData?.name}</span>
+      <header className="bg-green-700 text-white px-5 py-3.5 flex items-center justify-between sticky top-0 z-40">
+        <Logo size="sm" variant="light" />
+        <span className="text-sm text-green-100/80 font-medium">{userData?.name}</span>
       </header>
       <main className="flex-1 pb-20">{children}</main>
       <EmployeeNav />

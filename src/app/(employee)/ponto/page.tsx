@@ -5,16 +5,26 @@ import { createClient } from "@/lib/supabase/client";
 import { getCurrentPosition, isWithinRadius, getGeoErrorMessage } from "@/lib/geo";
 import type { StoreConfig, PunchType } from "@/types";
 import { getNextPunchType, PUNCH_TYPE_LABELS } from "@/types";
+import {
+  MapPin,
+  Wifi,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  Clock,
+  RefreshCw,
+  CircleCheckBig,
+} from "lucide-react";
 
 type LocationState = { status: "checking" | "ok" | "error"; distance?: number; message?: string };
 type PunchState = "idle" | "registering" | "success" | "error";
 
-const PUNCH_ICONS: Record<PunchType | "complete", string> = {
-  entry: "▶️",
-  lunch_out: "🍽️",
-  lunch_return: "↩️",
-  exit: "⏹️",
-  complete: "✅",
+const PUNCH_COLORS: Record<PunchType | "complete", string> = {
+  entry: "bg-green-600 hover:bg-green-700",
+  lunch_out: "bg-amber-600 hover:bg-amber-700",
+  lunch_return: "bg-blue-600 hover:bg-blue-700",
+  exit: "bg-gray-700 hover:bg-gray-800",
+  complete: "bg-gray-100",
 };
 
 export default function PontoPage() {
@@ -44,7 +54,7 @@ export default function PontoPage() {
     if (!userData) return;
 
     const { data: config } = await supabase
-      .from("store_configs").select("*").eq("organization_id", userData.organization_id).single();
+      .from("store_configs").select("*").eq("organization_id", userData.organization_id).maybeSingle();
     setStoreConfig(config);
 
     const today = new Date().toLocaleDateString("sv-SE");
@@ -61,6 +71,7 @@ export default function PontoPage() {
   }, []);
 
   const checkLocation = useCallback(async (config: StoreConfig) => {
+    setLocation({ status: "checking" });
     try {
       const pos = await getCurrentPosition();
       const { latitude: lat, longitude: lon, accuracy: acc } = pos.coords;
@@ -73,13 +84,8 @@ export default function PontoPage() {
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  useEffect(() => {
-    if (storeConfig) checkLocation(storeConfig);
-  }, [storeConfig, checkLocation]);
+  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { if (storeConfig) checkLocation(storeConfig); }, [storeConfig, checkLocation]);
 
   async function handlePunch() {
     if (!nextPunch || nextPunch === "complete" || location.status !== "ok" || !wifiConfirmed) return;
@@ -112,81 +118,153 @@ export default function PontoPage() {
     }
   }
 
-  const canPunch = location.status === "ok" && wifiConfirmed && nextPunch && nextPunch !== "complete" && punchState === "idle";
+  const canPunch = location.status === "ok" && wifiConfirmed && !!nextPunch && nextPunch !== "complete";
+  const isIdle = punchState === "idle";
 
   return (
-    <div className="max-w-sm mx-auto px-4 py-6 space-y-6">
-      <div className="text-center">
-        <div className="text-5xl font-mono font-bold text-gray-800">{time}</div>
-        <div className="text-sm text-gray-500 mt-1">
+    <div className="max-w-sm mx-auto px-4 py-6 space-y-5">
+      {/* Clock */}
+      <div className="text-center py-4">
+        <div className="text-6xl font-mono font-bold text-gray-900 tracking-tighter tabular-nums">
+          {time}
+        </div>
+        <div className="text-sm text-gray-500 mt-2 capitalize">
           {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
         </div>
       </div>
 
       {/* Location status */}
-      <div className={`rounded-xl p-4 flex items-center gap-3 ${location.status === "ok" ? "bg-green-50 border border-green-200" : location.status === "error" ? "bg-red-50 border border-red-200" : "bg-gray-50 border border-gray-200"}`}>
-        <span className="text-2xl">{location.status === "ok" ? "✅" : location.status === "error" ? "❌" : "⏳"}</span>
-        <div>
-          <div className="font-medium text-sm">
-            {location.status === "ok" ? `Localização confirmada (${location.distance}m)` : location.status === "error" ? "Fora da área permitida" : "Verificando localização..."}
-          </div>
-          {location.message && <div className="text-xs text-red-600 mt-0.5">{location.message}</div>}
+      <div className={`rounded-2xl p-4 flex items-center gap-3 transition-colors ${
+        location.status === "ok"
+          ? "bg-green-50 border border-green-200"
+          : location.status === "error"
+          ? "bg-red-50 border border-red-200"
+          : "bg-gray-50 border border-gray-200"
+      }`}>
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+          location.status === "ok" ? "bg-green-100" : location.status === "error" ? "bg-red-100" : "bg-gray-100"
+        }`}>
+          {location.status === "checking" ? (
+            <Loader2 size={20} className="text-gray-400 animate-spin" />
+          ) : location.status === "ok" ? (
+            <MapPin size={20} className="text-green-600" />
+          ) : (
+            <MapPin size={20} className="text-red-500" />
+          )}
         </div>
+        <div className="min-w-0">
+          <div className={`font-medium text-sm ${
+            location.status === "ok" ? "text-green-800" : location.status === "error" ? "text-red-800" : "text-gray-700"
+          }`}>
+            {location.status === "ok"
+              ? `Dentro da área (${location.distance}m)`
+              : location.status === "error"
+              ? "Fora da área permitida"
+              : "Verificando localização..."}
+          </div>
+          {location.message && (
+            <div className="text-xs text-red-600 mt-0.5 leading-snug">{location.message}</div>
+          )}
+        </div>
+        {location.status !== "checking" && (
+          <button
+            onClick={() => storeConfig && checkLocation(storeConfig)}
+            className="ml-auto shrink-0 p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
+            aria-label="Atualizar localização"
+          >
+            <RefreshCw size={16} />
+          </button>
+        )}
       </div>
 
       {/* WiFi confirmation */}
-      <label className={`flex items-center gap-3 rounded-xl p-4 cursor-pointer ${wifiConfirmed ? "bg-green-50 border border-green-200" : "bg-gray-50 border border-gray-200"}`}>
-        <input
-          type="checkbox"
-          checked={wifiConfirmed}
-          onChange={(e) => setWifiConfirmed(e.target.checked)}
-          className="w-5 h-5 accent-green-600"
-        />
-        <div>
-          <div className="font-medium text-sm">Conectado ao WiFi da loja</div>
-          <div className="text-xs text-gray-500">Confirme que está na rede do estabelecimento</div>
+      <label className={`flex items-center gap-3 rounded-2xl p-4 cursor-pointer transition-colors ${
+        wifiConfirmed ? "bg-green-50 border border-green-200" : "bg-gray-50 border border-gray-200 hover:bg-gray-100"
+      }`}>
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+          wifiConfirmed ? "bg-green-100" : "bg-gray-100"
+        }`}>
+          <Wifi size={20} className={wifiConfirmed ? "text-green-600" : "text-gray-400"} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className={`font-medium text-sm ${wifiConfirmed ? "text-green-800" : "text-gray-700"}`}>
+            Conectado ao WiFi da loja
+          </div>
+          <div className="text-xs text-gray-400 mt-0.5">
+            {storeConfig?.wifi_ssid ? `Rede: ${storeConfig.wifi_ssid}` : "Confirme que está na rede do estabelecimento"}
+          </div>
+        </div>
+        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${
+          wifiConfirmed ? "bg-green-600 border-green-600" : "border-gray-300 bg-white"
+        }`}>
+          {wifiConfirmed && <CheckCircle2 size={16} className="text-white" strokeWidth={2.5} />}
+          <input
+            type="checkbox"
+            checked={wifiConfirmed}
+            onChange={(e) => setWifiConfirmed(e.target.checked)}
+            className="sr-only"
+          />
         </div>
       </label>
 
-      {/* Punch button */}
+      {/* Punch button area */}
       {punchState === "success" ? (
-        <div className="bg-green-100 border border-green-300 rounded-2xl p-6 text-center">
-          <div className="text-4xl mb-2">✅</div>
-          <div className="font-bold text-green-800">{successMsg}</div>
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-8 text-center space-y-2">
+          <div className="flex justify-center mb-2">
+            <CircleCheckBig size={48} className="text-green-600" strokeWidth={1.5} />
+          </div>
+          <div className="font-bold text-green-800 text-lg">{successMsg}</div>
+          <div className="text-sm text-green-600">Registro confirmado!</div>
         </div>
       ) : punchState === "error" ? (
-        <div className="bg-red-100 border border-red-300 rounded-2xl p-6 text-center">
-          <div className="text-4xl mb-2">❌</div>
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center space-y-2">
+          <div className="flex justify-center mb-2">
+            <XCircle size={48} className="text-red-500" strokeWidth={1.5} />
+          </div>
           <div className="font-bold text-red-800">{errorMsg}</div>
+        </div>
+      ) : nextPunch === "complete" ? (
+        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center space-y-2">
+          <div className="flex justify-center mb-2">
+            <CircleCheckBig size={48} className="text-gray-400" strokeWidth={1.5} />
+          </div>
+          <div className="font-semibold text-gray-600">Jornada completa!</div>
+          <div className="text-sm text-gray-400">Todos os registros do dia foram realizados.</div>
         </div>
       ) : (
         <button
           onClick={handlePunch}
-          disabled={!canPunch || (punchState as string) === "registering"}
-          className={`w-full rounded-2xl py-6 text-xl font-bold transition-all ${
-            nextPunch === "complete"
-              ? "bg-gray-100 text-gray-500 cursor-default"
-              : canPunch
-              ? "bg-green-600 hover:bg-green-700 active:scale-95 text-white shadow-lg"
+          disabled={!canPunch || !isIdle}
+          className={`w-full rounded-2xl py-6 text-lg font-bold transition-all text-white flex items-center justify-center gap-3 ${
+            canPunch && isIdle
+              ? `${PUNCH_COLORS[nextPunch || "entry"]} shadow-md active:scale-[0.98]`
               : "bg-gray-200 text-gray-400 cursor-not-allowed"
           }`}
         >
-          {(punchState as string) === "registering" ? "Registrando..." : (
+          {punchState === "registering" ? (
             <>
-              <span className="mr-2">{nextPunch ? PUNCH_ICONS[nextPunch] : "⏳"}</span>
+              <Loader2 size={22} className="animate-spin" />
+              Registrando...
+            </>
+          ) : (
+            <>
+              <Clock size={22} />
               {nextPunch ? PUNCH_TYPE_LABELS[nextPunch] : "Carregando..."}
             </>
           )}
         </button>
       )}
 
-      {!wifiConfirmed && nextPunch !== "complete" && (
-        <p className="text-center text-xs text-amber-700">Confirme o WiFi para habilitar o registro</p>
+      {/* Helper hints */}
+      {!wifiConfirmed && nextPunch !== "complete" && isIdle && (
+        <p className="text-center text-xs text-amber-600">
+          Confirme a conexão WiFi para habilitar o registro
+        </p>
       )}
       {location.status === "error" && (
-        <button onClick={() => storeConfig && checkLocation(storeConfig)} className="w-full text-sm text-green-700 underline">
-          Tentar localização novamente
-        </button>
+        <p className="text-center text-xs text-red-600">
+          Verifique se o GPS está ativo e você está dentro da área da loja
+        </p>
       )}
     </div>
   );
