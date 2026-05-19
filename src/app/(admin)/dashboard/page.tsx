@@ -47,17 +47,17 @@ export default async function DashboardPage() {
   const totalOvertimeToday = todaySummaries?.reduce((s, r) => s + (r.overtime_hours || 0), 0) || 0;
 
   const stats = [
-    { label: "Presentes agora", value: presentCount, icon: CheckCircle2, color: "text-green-600", bg: "bg-green-50", border: "border-green-100" },
-    { label: "Ausentes", value: absentCount, icon: XCircle, color: "text-red-500", bg: "bg-red-50", border: "border-red-100" },
-    { label: "Total funcionários", value: employees?.length || 0, icon: Users, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
-    { label: "Horas extras hoje", value: formatHours(totalOvertimeToday), icon: Timer, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-100" },
+    { label: "Presentes agora", value: presentCount, icon: CheckCircle2, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/25" },
+    { label: "Ausentes", value: absentCount, icon: XCircle, color: "text-rose-400", bg: "bg-rose-500/10", border: "border-rose-500/25" },
+    { label: "Total funcionários", value: employees?.length || 0, icon: Users, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/25" },
+    { label: "Horas extras hoje", value: formatHours(totalOvertimeToday), icon: Timer, color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/25" },
   ];
 
   return (
     <div className="space-y-6 max-w-5xl">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
-        <p className="text-gray-500 text-sm mt-0.5">
+        <h1 className="text-2xl font-bold text-white tracking-tight text-glow">Dashboard</h1>
+        <p className="text-slate-400 text-sm mt-0.5">
           {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
         </p>
       </div>
@@ -67,13 +67,13 @@ export default async function DashboardPage() {
         {stats.map((card) => {
           const Icon = card.icon;
           return (
-            <div key={card.label} className={`bg-white rounded-xl border ${card.border} p-4 flex flex-col gap-3`}>
+            <div key={card.label} className={`glass-card rounded-2xl border ${card.border} p-4 flex flex-col gap-3 transition-transform hover:scale-[1.02] duration-300`}>
               <div className={`w-10 h-10 ${card.bg} rounded-xl flex items-center justify-center`}>
                 <Icon size={20} className={card.color} />
               </div>
               <div>
                 <div className={`text-2xl font-bold ${card.color}`}>{card.value}</div>
-                <div className="text-xs text-gray-500 mt-0.5">{card.label}</div>
+                <div className="text-xs text-slate-400 mt-0.5">{card.label}</div>
               </div>
             </div>
           );
@@ -81,46 +81,44 @@ export default async function DashboardPage() {
       </div>
 
       {/* Recent activity */}
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-          <span className="font-semibold text-gray-800">Atividade de Hoje</span>
-          <span className="text-xs text-gray-400">{todayRecords?.length || 0} registros</span>
+      <div className="glass-card rounded-2xl border border-white/[0.06] overflow-hidden">
+        <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
+          <span className="font-semibold text-slate-200">Atividade de Hoje</span>
+          <span className="text-xs text-slate-400">{todayRecords?.length || 0} registros</span>
         </div>
 
         {(!todayRecords || todayRecords.length === 0) ? (
           <div className="p-10 text-center">
-            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Timer size={24} className="text-gray-400" />
+            <div className="w-12 h-12 bg-white/[0.04] border border-white/[0.08] rounded-full flex items-center justify-center mx-auto mb-3">
+              <Timer size={24} className="text-slate-400" />
             </div>
-            <p className="text-gray-500 text-sm">Nenhum registro hoje.</p>
+            <p className="text-slate-400 text-sm">Nenhum registro hoje.</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-white/[0.04]">
             {todayRecords.slice(0, 20).map((r) => (
-              <div key={r.id} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+              <div key={r.id} className="px-5 py-3.5 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center shrink-0">
-                    <span className="text-xs font-bold text-green-700">
-                      {((r.user as { name: string })?.name || "?").charAt(0).toUpperCase()}
-                    </span>
+                  <div className="w-9 h-9 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center shrink-0 font-semibold text-xs">
+                    {((r.user as { name: string })?.name || "?").charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <div className="font-medium text-sm text-gray-800">{(r.user as { name: string })?.name}</div>
-                    <div className="text-xs text-gray-400">{PUNCH_LABELS[r.punch_type] || r.punch_type}</div>
+                    <div className="font-semibold text-sm text-slate-200">{(r.user as { name: string })?.name}</div>
+                    <div className="text-xs text-slate-400">{PUNCH_LABELS[r.punch_type] || r.punch_type}</div>
                   </div>
                 </div>
                 <div className="text-right flex items-center gap-3">
                   <div className="flex gap-1.5">
-                    <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${r.gps_verified ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                    <span className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium ${r.gps_verified ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"}`}>
                       <MapPin size={10} />
                       GPS
                     </span>
-                    <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${r.wifi_confirmed ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                    <span className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium ${r.wifi_confirmed ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-white/[0.04] text-slate-400 border border-white/[0.06]"}`}>
                       <Wifi size={10} />
                       WiFi
                     </span>
                   </div>
-                  <div className="text-sm font-semibold text-gray-700 tabular-nums">
+                  <div className="text-sm font-semibold text-slate-300 tabular-nums">
                     {formatTime(r.recorded_at)}
                   </div>
                 </div>

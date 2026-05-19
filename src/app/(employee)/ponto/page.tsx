@@ -14,13 +14,12 @@ import { FaceVerify, type FaceVerifyResult } from "@/components/employee/face-ve
 type LocationState = { status: "checking" | "ok" | "error"; distance?: number; message?: string };
 type PunchState = "idle" | "registering" | "success" | "error";
 
-// entry/lunch_return = clocking in (green), exit/lunch_out = clocking out (gray)
 const PUNCH_COLORS: Record<PunchType | "complete", string> = {
-  entry: "bg-green-600 hover:bg-green-700",
-  lunch_return: "bg-green-600 hover:bg-green-700",
-  lunch_out: "bg-gray-700 hover:bg-gray-800",
-  exit: "bg-gray-700 hover:bg-gray-800",
-  complete: "bg-gray-100",
+  entry: "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-[0_4px_25px_rgba(16,185,129,0.25)] hover:shadow-[0_4px_30px_rgba(16,185,129,0.35)]",
+  lunch_return: "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-[0_4px_25px_rgba(16,185,129,0.25)] hover:shadow-[0_4px_30px_rgba(16,185,129,0.35)]",
+  lunch_out: "bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-400 hover:to-blue-500 shadow-[0_4px_25px_rgba(99,102,241,0.25)] hover:shadow-[0_4px_30px_rgba(99,102,241,0.35)]",
+  exit: "bg-gradient-to-r from-rose-500 to-orange-600 hover:from-rose-400 hover:to-orange-500 shadow-[0_4px_25px_rgba(244,63,94,0.25)] hover:shadow-[0_4px_30px_rgba(244,63,94,0.35)]",
+  complete: "bg-white/[0.04]",
 };
 
 export default function PontoPage() {
@@ -61,7 +60,6 @@ export default function PontoPage() {
     const { data: facialProfile, error: faceError } = await supabase
       .from("facial_profiles").select("id").eq("user_id", user.id).eq("is_active", true).maybeSingle();
     if (faceError) console.error("Facial profile query error:", faceError);
-    console.log("Facial profile found:", !!facialProfile, facialProfile);
     setHasFacialProfile(!!facialProfile);
 
     const today = new Date().toLocaleDateString("sv-SE");
@@ -86,7 +84,7 @@ export default function PontoPage() {
       const { latitude: lat, longitude: lon, accuracy: acc } = pos.coords;
       setCoords({ lat, lon, acc });
       const { isValid, distance } = isWithinRadius(lat, lon, config.gps_latitude, config.gps_longitude, config.gps_radius_meters);
-      setLocation({ status: isValid ? "ok" : "error", distance, message: isValid ? undefined : `Você está ${distance}m fora da área permitida (raio: ${config.gps_radius_meters}m).` });
+      setLocation({ status: isValid ? "ok" : "error", distance, message: isValid ? undefined : `Você está ${distance}m fora da área (raio: ${config.gps_radius_meters}m).` });
     } catch (e) {
       const msg = e instanceof GeolocationPositionError ? getGeoErrorMessage(e) : "Erro ao obter localização.";
       setLocation({ status: "error", message: msg });
@@ -160,51 +158,61 @@ export default function PontoPage() {
   const isIdle = punchState === "idle";
 
   return (
-    <div className="max-w-sm mx-auto px-4 py-4 space-y-3">
-      {/* Clock */}
-      <div className="text-center py-3">
-        <div className="text-5xl font-mono font-bold text-gray-900 tracking-tighter tabular-nums">
-          {time}
+    <div className="space-y-6 max-w-sm mx-auto">
+      {/* Dynamic Glass Clock widget */}
+      <div className="glass-card rounded-3xl p-6 text-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none"></div>
+        <div className="w-48 h-48 rounded-full border border-white/[0.08] bg-gradient-to-tr from-white/[0.01] to-white/[0.04] flex flex-col items-center justify-center mx-auto shadow-[inset_0_0_20px_rgba(255,255,255,0.02)] relative">
+          <div className="absolute inset-2 border border-dashed border-white/[0.04] rounded-full animate-[spin_120s_linear_infinite]"></div>
+          <div className="text-4xl font-mono font-bold text-white tracking-tighter tabular-nums text-glow drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+            {time}
+          </div>
+          <Clock size={16} className="text-slate-500 mt-2" />
         </div>
-        <div className="text-xs text-gray-500 mt-1 capitalize">
+        <div className="text-xs text-slate-400 mt-4 capitalize font-semibold tracking-wide">
           {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
         </div>
       </div>
 
-      {/* Location status */}
-      <div className={`rounded-2xl p-3 flex items-center gap-3 transition-colors ${
-        location.status === "ok" ? "bg-green-50 border border-green-200"
-          : location.status === "error" ? "bg-red-50 border border-red-200"
-          : "bg-gray-50 border border-gray-200"
+      {/* Location Status Glass Panel */}
+      <div className={`glass-card rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 ${
+        location.status === "ok" ? "border-emerald-500/20 bg-emerald-500/[0.04]"
+          : location.status === "error" ? "border-rose-500/20 bg-rose-500/[0.04]"
+          : "border-white/[0.08]"
       }`}>
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-          location.status === "ok" ? "bg-green-100" : location.status === "error" ? "bg-red-100" : "bg-gray-100"
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors duration-300 ${
+          location.status === "ok" ? "bg-emerald-500/10 text-emerald-400" 
+            : location.status === "error" ? "bg-rose-500/10 text-rose-400" 
+            : "bg-white/5 text-slate-400"
         }`}>
           {location.status === "checking" ? (
-            <Loader2 size={16} className="text-gray-400 animate-spin" />
-          ) : location.status === "ok" ? (
-            <MapPin size={16} className="text-green-600" />
+            <Loader2 size={18} className="animate-spin text-slate-400" />
           ) : (
-            <MapPin size={16} className="text-red-500" />
+            <MapPin size={18} className="transition-transform duration-300" />
           )}
         </div>
-        <div className="min-w-0">
-          <div className={`font-medium text-xs ${
-            location.status === "ok" ? "text-green-800" : location.status === "error" ? "text-red-800" : "text-gray-700"
+        <div className="min-w-0 flex-grow">
+          <div className={`font-semibold text-xs tracking-wide uppercase ${
+            location.status === "ok" ? "text-emerald-400" 
+              : location.status === "error" ? "text-rose-400" 
+              : "text-slate-400"
           }`}>
+            GPS &amp; Localização
+          </div>
+          <div className="text-sm text-slate-200 font-medium mt-0.5 leading-snug">
             {location.status === "ok"
-              ? `Dentro da área (${location.distance}m)`
-              : location.status === "error" ? "Fora da área permitida"
-              : "Verificando localização..."}
+              ? `Área autorizada (${location.distance}m)`
+              : location.status === "error" ? "Fora do raio de alcance"
+              : "Obtendo sinal GPS..."}
           </div>
           {location.message && (
-            <div className="text-xs text-red-600 mt-0.5 leading-snug">{location.message}</div>
+            <div className="text-xs text-rose-300/80 mt-1 leading-relaxed bg-rose-500/10 border border-rose-500/10 rounded-lg p-2">{location.message}</div>
           )}
         </div>
         {location.status !== "checking" && (
           <button
             onClick={() => storeConfig && checkLocation(storeConfig)}
-            className="ml-auto shrink-0 p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
+            className="shrink-0 p-2 text-slate-400 hover:text-white bg-white/[0.04] border border-white/[0.06] rounded-lg transition-colors cursor-pointer hover:scale-105 active:scale-95"
             aria-label="Atualizar localização"
           >
             <RefreshCw size={16} />
@@ -212,23 +220,30 @@ export default function PontoPage() {
         )}
       </div>
 
-      {/* WiFi confirmation */}
-      <label className={`flex items-center gap-2.5 rounded-2xl p-3 cursor-pointer transition-colors ${
-        wifiConfirmed ? "bg-green-50 border border-green-200" : "bg-gray-50 border border-gray-200 hover:bg-gray-100"
+      {/* Wi-Fi Checkbox Glass Panel */}
+      <label className={`glass-card rounded-2xl p-4 flex items-center gap-4 cursor-pointer transition-all duration-300 ${
+        wifiConfirmed ? "border-emerald-500/20 bg-emerald-500/[0.04]" : "border-white/[0.08] hover:bg-white/[0.02]"
       }`}>
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${wifiConfirmed ? "bg-green-100" : "bg-gray-100"}`}>
-          <Wifi size={16} className={wifiConfirmed ? "text-green-600" : "text-gray-400"} />
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors duration-300 ${
+          wifiConfirmed ? "bg-emerald-500/10 text-emerald-400" : "bg-white/5 text-slate-400"
+        }`}>
+          <Wifi size={18} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className={`font-medium text-xs ${wifiConfirmed ? "text-green-800" : "text-gray-700"}`}>
-            Conectado ao WiFi da loja
+          <div className={`font-semibold text-xs tracking-wide uppercase ${
+            wifiConfirmed ? "text-emerald-400" : "text-slate-400"
+          }`}>
+            Conexão Wi-Fi
           </div>
-          <div className="text-xs text-gray-400 mt-0.5">
-            {storeConfig?.wifi_ssid ? `Rede: ${storeConfig.wifi_ssid}` : "Confirme que está na rede"}
+          <div className="text-sm text-slate-200 font-medium mt-0.5 leading-snug">
+            {wifiConfirmed ? "Wi-Fi local confirmado" : "Conectado na rede da loja"}
+          </div>
+          <div className="text-xs text-slate-400 mt-0.5">
+            {storeConfig?.wifi_ssid ? `SSID: ${storeConfig.wifi_ssid}` : "Confirme sua rede"}
           </div>
         </div>
-        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${
-          wifiConfirmed ? "bg-green-600 border-green-600" : "border-gray-300 bg-white"
+        <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 shrink-0 ${
+          wifiConfirmed ? "bg-emerald-500 border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)]" : "border-white/20 bg-white/[0.03]"
         }`}>
           {wifiConfirmed && <CheckCircle2 size={16} className="text-white" strokeWidth={2.5} />}
           <input type="checkbox" checked={wifiConfirmed} onChange={(e) => setWifiConfirmed(e.target.checked)} className="sr-only" />
@@ -237,16 +252,17 @@ export default function PontoPage() {
 
       {/* Face verification result badge */}
       {faceResult && !showFaceVerify && (
-        <div className={`rounded-2xl p-4 flex items-center gap-3 border ${
-          faceResult.verified ? "bg-green-50 border-green-200" : "bg-gray-50 border-gray-200"
+        <div className={`glass-card rounded-2xl p-4 flex items-center gap-4 border transition-all duration-300 ${
+          faceResult.verified ? "border-emerald-500/20 bg-emerald-500/[0.04]" : "border-white/[0.08]"
         }`}>
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${faceResult.verified ? "bg-green-100" : "bg-gray-100"}`}>
-            <ScanFace size={20} className={faceResult.verified ? "text-green-600" : "text-gray-400"} />
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${faceResult.verified ? "bg-emerald-500/10 text-emerald-400" : "bg-white/5 text-slate-400"}`}>
+            <ScanFace size={18} />
           </div>
           <div className="min-w-0">
-            <div className={`font-medium text-sm ${faceResult.verified ? "text-green-800" : "text-gray-600"}`}>
+            <div className="font-semibold text-xs tracking-wide uppercase text-slate-400">Reconhecimento Facial</div>
+            <div className={`font-medium text-sm mt-0.5 ${faceResult.verified ? "text-emerald-400" : "text-slate-200"}`}>
               {faceResult.verified
-                ? `Identidade confirmada (${Math.round((faceResult.similarity || 0) * 100)}%)`
+                ? `Identidade Confirmada (${Math.round((faceResult.similarity || 0) * 100)}%)`
                 : faceResult.reason === "no_profile" ? "Sem perfil facial — ponto liberado"
                 : "Verificação facial pulada"}
             </div>
@@ -256,70 +272,76 @@ export default function PontoPage() {
 
       {/* Face Verify Component */}
       {showFaceVerify && userId && isIdle && (
-        <FaceVerify userId={userId} onResult={handleFaceResult} onSkip={handleFaceSkip} />
+        <div className="glass-card rounded-3xl p-4 border border-white/[0.08]">
+          <FaceVerify userId={userId} onResult={handleFaceResult} onSkip={handleFaceSkip} />
+        </div>
       )}
 
       {/* Punch button area */}
       {!showFaceVerify && (
-        <>
+        <div className="pt-2">
           {punchState === "success" ? (
-            <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-center space-y-1.5">
+            <div className="glass-card border-emerald-500/20 bg-emerald-500/[0.04] rounded-2xl p-5 text-center space-y-2 animate-fade-in">
               <div className="flex justify-center mb-1">
-                <CircleCheckBig size={36} className="text-green-600" strokeWidth={1.5} />
+                <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+                  <CircleCheckBig size={32} strokeWidth={1.5} className="animate-pulse" />
+                </div>
               </div>
-              <div className="font-bold text-green-800 text-sm">{successMsg}</div>
-              <div className="text-xs text-green-600">Registro confirmado!</div>
+              <div className="font-bold text-emerald-300 text-sm leading-relaxed">{successMsg}</div>
+              <div className="text-xs text-slate-400">Registro confirmado no banco de dados</div>
             </div>
           ) : punchState === "error" ? (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-center space-y-1.5">
+            <div className="glass-card border-rose-500/20 bg-rose-500/[0.04] rounded-2xl p-5 text-center space-y-2 animate-shake">
               <div className="flex justify-center mb-1">
-                <XCircle size={36} className="text-red-500" strokeWidth={1.5} />
+                <div className="w-14 h-14 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.2)]">
+                  <XCircle size={32} strokeWidth={1.5} />
+                </div>
               </div>
-              <div className="font-bold text-red-800 text-sm">{errorMsg}</div>
+              <div className="font-bold text-rose-300 text-sm leading-relaxed">{errorMsg}</div>
             </div>
           ) : (
             <button
               onClick={handleStartPunch}
               disabled={!canPunch || !isIdle}
-              className={`w-full rounded-2xl py-4 text-base font-bold transition-all text-white flex items-center justify-center gap-2 ${
+              className={`w-full rounded-2xl py-4 text-sm tracking-widest uppercase font-bold transition-all text-white flex items-center justify-center gap-2 cursor-pointer ${
                 canPunch && isIdle
-                  ? `${PUNCH_COLORS[nextPunch || "entry"]} shadow-md active:scale-[0.98]`
-                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  ? `${PUNCH_COLORS[nextPunch || "entry"]} active:scale-[0.98] transform`
+                  : "bg-white/[0.02] border border-white/[0.05] text-slate-600 cursor-not-allowed shadow-none"
               }`}
             >
               {punchState === "registering" ? (
-                <><Loader2 size={18} className="animate-spin" />Registrando...</>
+                <><Loader2 size={18} className="animate-spin" /><span>Registrando Ponto...</span></>
               ) : (
                 <>
                   {hasFacialProfile && !faceResult ? <ScanFace size={18} /> : <Clock size={18} />}
-                  {nextPunch ? PUNCH_TYPE_LABELS[nextPunch] : "Carregando..."}
+                  <span>{nextPunch ? PUNCH_TYPE_LABELS[nextPunch] : "Carregando..."}</span>
                 </>
               )}
             </button>
           )}
-        </>
+        </div>
       )}
 
-      {/* Hints */}
+      {/* Hints & Instructions */}
       {!wifiConfirmed && isIdle && !showFaceVerify && (
-        <p className="text-center text-xs text-amber-600">
-          Confirme a conexão WiFi para habilitar o registro
-        </p>
+        <div className="glass-card border-amber-500/15 bg-amber-500/[0.02] rounded-xl p-3 text-center text-xs text-amber-300/90 font-medium">
+          Confirme a conexão Wi-Fi da loja para liberar o registro
+        </div>
       )}
       {location.status === "error" && (
-        <p className="text-center text-xs text-red-600">
-          Verifique se o GPS está ativo e você está dentro da área da loja
-        </p>
+        <div className="glass-card border-rose-500/15 bg-rose-500/[0.02] rounded-xl p-3 text-center text-xs text-rose-300/90 font-medium">
+          Ative o GPS do aparelho e certifique-se de estar dentro da loja
+        </div>
       )}
       {hasFacialProfile && !faceResult && canPunch && isIdle && !showFaceVerify && (
-        <p className="text-center text-xs text-purple-600">
-          Ao registrar, você será solicitado a verificar sua identidade pela câmera
-        </p>
+        <div className="glass-card border-indigo-500/15 bg-indigo-500/[0.02] rounded-xl p-3 text-center text-xs text-indigo-300/90 font-medium">
+          Identificação facial biométrica será necessária ao bater ponto
+        </div>
       )}
       {!hasFacialProfile && canPunch && isIdle && !showFaceVerify && (
-        <p className="text-center text-xs text-gray-500">
-          Foto facial não configurada. Contacte o administrador para ativar o reconhecimento.
-        </p>
+        <div className="glass-card border-white/5 bg-white/[0.01] rounded-xl p-3 text-center text-xs text-slate-400 font-medium">
+          Foto facial não configurada. Fale com seu gerente para cadastrar.
+        </div>
       )}
     </div>
   );

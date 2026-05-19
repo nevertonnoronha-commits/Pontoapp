@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency } from "@/lib/hours";
-import { UserCircle, Mail, Clock, Briefcase, DollarSign, LogOut } from "lucide-react";
+import { Mail, Clock, Briefcase, DollarSign, LogOut, Loader2 } from "lucide-react";
 
 export default function PerfilPage() {
   const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
@@ -30,10 +30,10 @@ export default function PerfilPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center space-y-3">
-          <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-gray-500">Carregando perfil...</p>
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-10 h-10 text-emerald-400 animate-spin mx-auto" />
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Carregando perfil...</p>
         </div>
       </div>
     );
@@ -42,58 +42,59 @@ export default function PerfilPage() {
   const initials = user?.name?.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase() || "?";
 
   return (
-    <div className="px-4 py-6 space-y-5 max-w-sm mx-auto">
+    <div className="px-1 py-2 space-y-6 max-w-sm mx-auto">
       {/* Avatar card */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center">
-        <div className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-          <span className="text-2xl font-bold text-white">{initials}</span>
+      <div className="glass-card rounded-3xl p-6 text-center border border-white/[0.08] relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none"></div>
+        <div className="w-20 h-20 bg-gradient-to-tr from-emerald-500 to-teal-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_4px_20px_rgba(16,185,129,0.3)]">
+          <span className="text-2xl font-extrabold text-white tracking-wide">{initials}</span>
         </div>
-        <h1 className="text-xl font-bold text-gray-900 tracking-tight">{user?.name}</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{profile?.job_title || "Funcionário"}</p>
+        <h1 className="text-xl font-bold text-white tracking-tight">{user?.name}</h1>
+        <p className="text-xs font-semibold text-slate-400 mt-1 uppercase tracking-wider">{profile?.job_title || "Colaborador"}</p>
       </div>
 
       {/* Info card */}
-      <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-50">
-        <div className="flex items-center gap-3 px-5 py-4">
-          <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
-            <Mail size={18} className="text-blue-500" />
+      <div className="glass-card rounded-3xl border border-white/[0.08] divide-y divide-white/[0.05] overflow-hidden">
+        <div className="flex items-center gap-4 px-5 py-4.5">
+          <div className="w-10 h-10 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl flex items-center justify-center shrink-0">
+            <Mail size={18} />
           </div>
-          <div className="min-w-0">
-            <div className="text-xs text-gray-400">E-mail</div>
-            <div className="text-sm font-medium text-gray-800 truncate">{user?.email}</div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">E-mail</div>
+            <div className="text-sm font-semibold text-slate-200 truncate mt-0.5">{user?.email}</div>
           </div>
         </div>
 
         {profile?.job_title && (
-          <div className="flex items-center gap-3 px-5 py-4">
-            <div className="w-9 h-9 bg-purple-50 rounded-xl flex items-center justify-center shrink-0">
-              <Briefcase size={18} className="text-purple-500" />
+          <div className="flex items-center gap-4 px-5 py-4.5">
+            <div className="w-10 h-10 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-xl flex items-center justify-center shrink-0">
+              <Briefcase size={18} />
             </div>
-            <div>
-              <div className="text-xs text-gray-400">Cargo</div>
-              <div className="text-sm font-medium text-gray-800">{profile.job_title}</div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Cargo</div>
+              <div className="text-sm font-semibold text-slate-200 mt-0.5">{profile.job_title}</div>
             </div>
           </div>
         )}
 
-        <div className="flex items-center gap-3 px-5 py-4">
-          <div className="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center shrink-0">
-            <Clock size={18} className="text-green-600" />
+        <div className="flex items-center gap-4 px-5 py-4.5">
+          <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center shrink-0">
+            <Clock size={18} />
           </div>
-          <div>
-            <div className="text-xs text-gray-400">Jornada diária</div>
-            <div className="text-sm font-medium text-gray-800">{profile?.daily_hours || 8}h por dia</div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Jornada Diária</div>
+            <div className="text-sm font-semibold text-slate-200 mt-0.5">{profile?.daily_hours || 8}h por dia</div>
           </div>
         </div>
 
         {profile?.salary ? (
-          <div className="flex items-center gap-3 px-5 py-4">
-            <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center shrink-0">
-              <DollarSign size={18} className="text-amber-600" />
+          <div className="flex items-center gap-4 px-5 py-4.5">
+            <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl flex items-center justify-center shrink-0">
+              <DollarSign size={18} />
             </div>
-            <div>
-              <div className="text-xs text-gray-400">Salário</div>
-              <div className="text-sm font-medium text-gray-800">{formatCurrency(profile.salary)}</div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Salário</div>
+              <div className="text-sm font-semibold text-slate-200 mt-0.5">{formatCurrency(profile.salary)}</div>
             </div>
           </div>
         ) : null}
@@ -102,10 +103,10 @@ export default function PerfilPage() {
       {/* Logout */}
       <button
         onClick={handleLogout}
-        className="w-full flex items-center justify-center gap-2 bg-white border border-red-200 text-red-600 hover:bg-red-50 rounded-2xl py-3.5 font-medium text-sm transition-colors"
+        className="w-full flex items-center justify-center gap-2 bg-rose-500/10 border border-rose-500/20 text-rose-300 hover:bg-rose-500/20 rounded-2xl py-3.5 font-bold text-xs tracking-wider uppercase transition-all duration-300 shadow-md hover:scale-[1.01] cursor-pointer"
       >
-        <LogOut size={18} />
-        Sair da conta
+        <LogOut size={16} />
+        Sair da Conta
       </button>
     </div>
   );
