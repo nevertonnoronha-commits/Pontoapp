@@ -62,11 +62,12 @@ export default function PontoPage() {
     setHasFacialProfile(!!facialProfile);
 
     const today = new Date().toLocaleDateString("sv-SE");
+    const startOfDay = new Date(today + "T00:00:00").toISOString();
     const { data: records } = await supabase
       .from("time_records")
       .select("punch_type, recorded_at")
       .eq("user_id", user.id)
-      .gte("recorded_at", today + "T00:00:00")
+      .gte("recorded_at", startOfDay)
       .order("recorded_at", { ascending: false })
       .limit(1);
 

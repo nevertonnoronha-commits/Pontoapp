@@ -39,9 +39,12 @@ export function EmployeeForm({
   const [photoPreview, setPhotoPreview] = useState<string | null>(
     employee?.facial_profile?.photo_url || null
   );
-  const [faceTrainStatus, setFaceTrainStatus] = useState<"idle" | "training" | "ok" | "photo_only" | "error">(
-    employee?.facial_profile?.face_descriptor ? "ok" : "idle"
-  );
+  const [faceTrainStatus, setFaceTrainStatus] = useState<"idle" | "training" | "ok" | "photo_only" | "error">(() => {
+    if (!employee?.facial_profile) return "idle";
+    if (employee.facial_profile.face_descriptor) return "ok";
+    if (employee.facial_profile.photo_url) return "photo_only";
+    return "idle";
+  })();
 
   const [formData, setFormData] = useState({
     name: employee?.name || "",
@@ -152,7 +155,19 @@ export function EmployeeForm({
           }
         } else {
           setFaceTrainStatus("error");
+          toast({
+            variant: "destructive",
+            title: "Erro no upload da foto",
+            description: uploadError?.message || "Verifique se o bucket face-photos existe no Supabase Storage",
+          });
         }
+      } else if (photoFile) {
+        setFaceTrainStatus("error");
+        toast({
+          variant: "destructive",
+          title: "Erro ao fazer upload",
+          description: "Não foi possível fazer upload da foto. Verifique sua conexão.",
+        });
       }
 
       toast({

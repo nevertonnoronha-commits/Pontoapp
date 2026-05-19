@@ -68,11 +68,13 @@ export default function AjustesPage() {
   async function handleSearch() {
     if (!selectedEmployee || !selectedDate) return;
     setSearching(true);
+    const startOfDay = new Date(selectedDate + "T00:00:00").toISOString();
+    const endOfDay = new Date(selectedDate + "T23:59:59").toISOString();
     const { data } = await supabase
       .from("time_records").select("*, user:users(name)")
       .eq("user_id", selectedEmployee)
-      .gte("recorded_at", selectedDate + "T00:00:00")
-      .lte("recorded_at", selectedDate + "T23:59:59")
+      .gte("recorded_at", startOfDay)
+      .lte("recorded_at", endOfDay)
       .order("recorded_at");
     const records = (data as RecordWithUser[]) || [];
     setDayRecords(PUNCH_SEQUENCE.map((pt) => ({
