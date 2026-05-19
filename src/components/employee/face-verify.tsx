@@ -22,6 +22,7 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const openingCameraRef = useRef(false);
 
   const [step, setStep] = useState<Step>("idle");
   const [statusMsg, setStatusMsg] = useState("");
@@ -58,6 +59,13 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
   }, [stopCamera]);
 
   async function openCamera() {
+    // Prevent multiple simultaneous camera open attempts
+    if (openingCameraRef.current) {
+      console.log("Camera opening already in progress, ignoring request");
+      return;
+    }
+    openingCameraRef.current = true;
+
     setStep("camera");
     setError("");
     setCameraReady(false);
@@ -66,7 +74,6 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
     setVerified(null);
 
     try {
-      // Stop any existing stream first
       stopCamera();
 
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -82,64 +89,57 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
       streamRef.current = stream;
       videoRef.current.srcObject = stream;
 
-      // Wait for video metadata to load using event, not readyState polling
-      await new Promise<void>((resolve, reject) => {
-        const timeoutId = setTimeout(() => {
-          if (videoRef.current) {
-            videoRef.current.removeEventListener("loadedmetadata", handleLoadedMetadata);
-            videoRef.current.removeEventListener("error", handleVideoError);
-          }
-          reject(new Error("Camera initialization timeout - video metadata never loaded"));
-        }, 5000);
-
-        const handleLoadedMetadata = () => {
-          clearTimeout(timeoutId);
-          if (videoRef.current) {
-            videoRef.current.removeEventListener("loadedmetadata", handleLoadedMetadata);
-            videoRef.current.removeEventListener("error", handleVideoError);
-          }
-
+      // Play immediately and set ready when it actually plays
+      try {
+        await videoRef.current.play();
+        openingCameraRef.current = false;
+        setCameraReady(true);
+      } catch (playErr) {
+        // If play fails, wait for canplay event instead
+        await new Promise<void>((resolve, reject) => {
           if (!videoRef.current) {
-            reject(new Error("Video element lost after metadata"));
+            reject(new Error("Video element lost"));
             return;
           }
 
-          videoRef.current
-            .play()
-            .then(() => {
-              setCameraReady(true);
-              resolve();
-            })
-            .catch((playErr) => {
-              reject(new Error(`Failed to play video: ${playErr.message}`));
-            });
-        };
+          const timeoutId = setTimeout(() => {
+            cleanup();
+            reject(new Error("Camera initialization timeout"));
+          }, 2000);
 
-        const handleVideoError = () => {
-          clearTimeout(timeoutId);
-          if (videoRef.current) {
-            videoRef.current.removeEventListener("loadedmetadata", handleLoadedMetadata);
-            videoRef.current.removeEventListener("error", handleVideoError);
-          }
-          reject(new Error("Video element error - camera stream corrupted"));
-        };
+          const cleanup = () => {
+            clearTimeout(timeoutId);
+            if (videoRef.current) {
+              videoRef.current.removeEventListener("canplay", handleCanPlay);
+              videoRef.current.removeEventListener("error", handleVideoError);
+            }
+          };
 
-        videoRef.current.addEventListener("loadedmetadata", handleLoadedMetadata, { once: true });
-        videoRef.current.addEventListener("error", handleVideoError, { once: true });
-      });
+          const handleCanPlay = () => {
+            cleanup();
+            openingCameraRef.current = false;
+            setCameraReady(true);
+            resolve();
+          };
+
+          const handleVideoError = () => {
+            cleanup();
+            reject(new Error("Video element error"));
+          };
+
+          videoRef.current!.addEventListener("canplay", handleCanPlay, { once: true });
+          videoRef.current!.addEventListener("error", handleVideoError, { once: true });
+        });
+      }
     } catch (err) {
-      console.error("Camera access error - Full error:", err);
-      console.error("Error type:", err instanceof DOMException ? "DOMException" : typeof err);
-      console.error("Error name:", (err as any)?.name);
-      console.error("Error message:", (err as any)?.message);
-
-      // Always stop stream on error
+      console.error("Camera access error:", err);
+      openingCameraRef.current = false;
       stopCamera();
 
       let errorMsg = "Não foi possível acessar a câmera.";
 
       if (err instanceof DOMException) {
-        console.error("DOMException detected. Name:", err.name);\n        if (err.name === "NotAllowedError") {
+        if (err.name === "NotAllowedError") {
           errorMsg = "Permissão negada. Por favor, permita acesso à câmera nas configurações do dispositivo.";
         } else if (err.name === "NotFoundError") {
           errorMsg = "Nenhuma câmera encontrada no dispositivo.";
@@ -154,7 +154,6 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
         errorMsg = `Erro: ${err.message}`;
       }
 
-      console.log("Final error message:", errorMsg);
       setError(errorMsg);
       setStep("idle");
       setCameraReady(false);
