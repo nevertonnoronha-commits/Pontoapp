@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Logo } from "@/components/shared/logo";
 import {
   LayoutDashboard,
@@ -12,6 +13,8 @@ import {
   PenLine,
   Settings,
   LogOut,
+  Menu,
+  X,
 } from "lucide-react";
 
 const links = [
@@ -26,6 +29,7 @@ const links = [
 export default function AdminNav({ userName }: { userName: string }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   async function handleLogout() {
     const supabase = createClient();
@@ -76,7 +80,7 @@ export default function AdminNav({ userName }: { userName: string }) {
 
       {/* Mobile bottom nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-amber-900 border-t border-amber-800/60 flex lg:hidden z-50 safe-area-pb">
-        {links.map((l) => {
+        {links.slice(0, 5).map((l) => {
           const Icon = l.icon;
           const active = pathname === l.href || pathname.startsWith(l.href + "/");
           return (
@@ -94,6 +98,42 @@ export default function AdminNav({ userName }: { userName: string }) {
             </Link>
           );
         })}
+        {/* Mobile menu button */}
+        <div className="relative flex-1">
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className={`w-full flex flex-col items-center py-2 gap-0.5 transition-colors ${
+              mobileMenuOpen ? "text-white" : "text-amber-400"
+            }`}
+          >
+            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+            <span className="text-[9px] leading-none font-semibold">Menu</span>
+          </button>
+
+          {/* Dropdown menu */}
+          {mobileMenuOpen && (
+            <div className="absolute bottom-full right-0 bg-amber-900 border border-amber-800/60 rounded-lg shadow-lg overflow-hidden w-48 mb-1">
+              <Link
+                href="/configuracoes"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 text-sm text-amber-100 hover:bg-white/10 border-b border-amber-800/60"
+              >
+                <Settings size={16} />
+                Configurações
+              </Link>
+              <button
+                onClick={() => {
+                  handleLogout();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-amber-200/70 hover:bg-white/10 transition-colors text-left"
+              >
+                <LogOut size={16} />
+                Sair da conta
+              </button>
+            </div>
+          )}
+        </div>
       </nav>
     </>
   );

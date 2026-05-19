@@ -160,36 +160,36 @@ export default function PontoPage() {
   const isIdle = punchState === "idle";
 
   return (
-    <div className="max-w-sm mx-auto px-4 py-6 space-y-5">
+    <div className="max-w-sm mx-auto px-4 py-4 space-y-3">
       {/* Clock */}
-      <div className="text-center py-4">
-        <div className="text-6xl font-mono font-bold text-gray-900 tracking-tighter tabular-nums">
+      <div className="text-center py-3">
+        <div className="text-5xl font-mono font-bold text-gray-900 tracking-tighter tabular-nums">
           {time}
         </div>
-        <div className="text-sm text-gray-500 mt-2 capitalize">
+        <div className="text-xs text-gray-500 mt-1 capitalize">
           {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
         </div>
       </div>
 
       {/* Location status */}
-      <div className={`rounded-2xl p-4 flex items-center gap-3 transition-colors ${
+      <div className={`rounded-2xl p-3 flex items-center gap-3 transition-colors ${
         location.status === "ok" ? "bg-green-50 border border-green-200"
           : location.status === "error" ? "bg-red-50 border border-red-200"
           : "bg-gray-50 border border-gray-200"
       }`}>
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
           location.status === "ok" ? "bg-green-100" : location.status === "error" ? "bg-red-100" : "bg-gray-100"
         }`}>
           {location.status === "checking" ? (
-            <Loader2 size={20} className="text-gray-400 animate-spin" />
+            <Loader2 size={16} className="text-gray-400 animate-spin" />
           ) : location.status === "ok" ? (
-            <MapPin size={20} className="text-green-600" />
+            <MapPin size={16} className="text-green-600" />
           ) : (
-            <MapPin size={20} className="text-red-500" />
+            <MapPin size={16} className="text-red-500" />
           )}
         </div>
         <div className="min-w-0">
-          <div className={`font-medium text-sm ${
+          <div className={`font-medium text-xs ${
             location.status === "ok" ? "text-green-800" : location.status === "error" ? "text-red-800" : "text-gray-700"
           }`}>
             {location.status === "ok"
@@ -213,21 +213,21 @@ export default function PontoPage() {
       </div>
 
       {/* WiFi confirmation */}
-      <label className={`flex items-center gap-3 rounded-2xl p-4 cursor-pointer transition-colors ${
+      <label className={`flex items-center gap-2.5 rounded-2xl p-3 cursor-pointer transition-colors ${
         wifiConfirmed ? "bg-green-50 border border-green-200" : "bg-gray-50 border border-gray-200 hover:bg-gray-100"
       }`}>
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${wifiConfirmed ? "bg-green-100" : "bg-gray-100"}`}>
-          <Wifi size={20} className={wifiConfirmed ? "text-green-600" : "text-gray-400"} />
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${wifiConfirmed ? "bg-green-100" : "bg-gray-100"}`}>
+          <Wifi size={16} className={wifiConfirmed ? "text-green-600" : "text-gray-400"} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className={`font-medium text-sm ${wifiConfirmed ? "text-green-800" : "text-gray-700"}`}>
+          <div className={`font-medium text-xs ${wifiConfirmed ? "text-green-800" : "text-gray-700"}`}>
             Conectado ao WiFi da loja
           </div>
           <div className="text-xs text-gray-400 mt-0.5">
-            {storeConfig?.wifi_ssid ? `Rede: ${storeConfig.wifi_ssid}` : "Confirme que está na rede do estabelecimento"}
+            {storeConfig?.wifi_ssid ? `Rede: ${storeConfig.wifi_ssid}` : "Confirme que está na rede"}
           </div>
         </div>
-        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${
+        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${
           wifiConfirmed ? "bg-green-600 border-green-600" : "border-gray-300 bg-white"
         }`}>
           {wifiConfirmed && <CheckCircle2 size={16} className="text-white" strokeWidth={2.5} />}
@@ -263,35 +263,35 @@ export default function PontoPage() {
       {!showFaceVerify && (
         <>
           {punchState === "success" ? (
-            <div className="bg-green-50 border border-green-200 rounded-2xl p-8 text-center space-y-2">
-              <div className="flex justify-center mb-2">
-                <CircleCheckBig size={48} className="text-green-600" strokeWidth={1.5} />
+            <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-center space-y-1.5">
+              <div className="flex justify-center mb-1">
+                <CircleCheckBig size={36} className="text-green-600" strokeWidth={1.5} />
               </div>
-              <div className="font-bold text-green-800 text-lg">{successMsg}</div>
-              <div className="text-sm text-green-600">Registro confirmado!</div>
+              <div className="font-bold text-green-800 text-sm">{successMsg}</div>
+              <div className="text-xs text-green-600">Registro confirmado!</div>
             </div>
           ) : punchState === "error" ? (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center space-y-2">
-              <div className="flex justify-center mb-2">
-                <XCircle size={48} className="text-red-500" strokeWidth={1.5} />
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-center space-y-1.5">
+              <div className="flex justify-center mb-1">
+                <XCircle size={36} className="text-red-500" strokeWidth={1.5} />
               </div>
-              <div className="font-bold text-red-800">{errorMsg}</div>
+              <div className="font-bold text-red-800 text-sm">{errorMsg}</div>
             </div>
           ) : (
             <button
               onClick={handleStartPunch}
               disabled={!canPunch || !isIdle}
-              className={`w-full rounded-2xl py-6 text-lg font-bold transition-all text-white flex items-center justify-center gap-3 ${
+              className={`w-full rounded-2xl py-4 text-base font-bold transition-all text-white flex items-center justify-center gap-2 ${
                 canPunch && isIdle
                   ? `${PUNCH_COLORS[nextPunch || "entry"]} shadow-md active:scale-[0.98]`
                   : "bg-gray-200 text-gray-400 cursor-not-allowed"
               }`}
             >
               {punchState === "registering" ? (
-                <><Loader2 size={22} className="animate-spin" />Registrando...</>
+                <><Loader2 size={18} className="animate-spin" />Registrando...</>
               ) : (
                 <>
-                  {hasFacialProfile && !faceResult ? <ScanFace size={22} /> : <Clock size={22} />}
+                  {hasFacialProfile && !faceResult ? <ScanFace size={18} /> : <Clock size={18} />}
                   {nextPunch ? PUNCH_TYPE_LABELS[nextPunch] : "Carregando..."}
                 </>
               )}

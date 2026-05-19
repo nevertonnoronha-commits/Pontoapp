@@ -119,20 +119,20 @@ export default function ConfiguracoesPage() {
   }
 
   return (
-    <div className="max-w-xl space-y-6">
+    <div className="max-w-xl space-y-4 lg:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Configurações da Loja</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
+        <h1 className="text-xl lg:text-2xl font-bold text-gray-900 tracking-tight">Configurações da Loja</h1>
+        <p className="text-xs lg:text-sm text-gray-500 mt-1">
           Defina o WiFi e a localização onde os funcionários podem bater ponto.
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-6">
+      <div className="bg-white rounded-2xl border border-gray-100 p-4 lg:p-6 space-y-4 lg:space-y-6">
 
         {/* Store name */}
         <div>
-          <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-2">
-            <Store size={15} className="text-gray-400" />
+          <label className="flex items-center gap-1.5 text-xs lg:text-sm font-medium text-gray-700 mb-1.5 lg:mb-2">
+            <Store size={14} className="text-gray-400 shrink-0" />
             Nome da Loja
             <span className="text-red-500 ml-0.5">*</span>
           </label>
@@ -141,14 +141,14 @@ export default function ConfiguracoesPage() {
             value={form.store_name}
             onChange={(e) => setForm((f) => ({ ...f, store_name: e.target.value }))}
             placeholder="Ex: Loja da Dona Maria"
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
+            className="w-full border border-gray-200 rounded-lg lg:rounded-xl px-3 py-2 lg:py-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
           />
         </div>
 
         {/* WiFi */}
         <div>
-          <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-2">
-            <Wifi size={15} className="text-gray-400" />
+          <label className="flex items-center gap-1.5 text-xs lg:text-sm font-medium text-gray-700 mb-1.5 lg:mb-2">
+            <Wifi size={14} className="text-gray-400 shrink-0" />
             Nome da Rede WiFi (SSID)
           </label>
           <input
@@ -156,17 +156,17 @@ export default function ConfiguracoesPage() {
             value={form.wifi_ssid}
             onChange={(e) => setForm((f) => ({ ...f, wifi_ssid: e.target.value }))}
             placeholder="Ex: MinhaLoja-WiFi"
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
+            className="w-full border border-gray-200 rounded-lg lg:rounded-xl px-3 py-2 lg:py-2.5 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
           />
-          <p className="text-xs text-gray-400 mt-1.5">
+          <p className="text-xs text-gray-400 mt-1">
             O funcionário confirmará manualmente que está nessa rede ao registrar o ponto.
           </p>
         </div>
 
         {/* GPS */}
-        <div className="space-y-3">
-          <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-            <MapPin size={15} className="text-gray-400" />
+        <div className="space-y-2 lg:space-y-3">
+          <label className="flex items-center gap-1.5 text-xs lg:text-sm font-medium text-gray-700">
+            <MapPin size={14} className="text-gray-400 shrink-0" />
             Localização da Loja
             <span className="text-red-500 ml-0.5">*</span>
           </label>
@@ -175,7 +175,7 @@ export default function ConfiguracoesPage() {
             type="button"
             onClick={useCurrentLocation}
             disabled={locating}
-            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-lg lg:rounded-xl py-2 lg:py-2.5 text-xs lg:text-sm font-semibold transition-colors flex items-center justify-center gap-2"
           >
             {locating ? (
               <>
@@ -215,27 +215,27 @@ export default function ConfiguracoesPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2 lg:gap-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1.5">Latitude (manual)</label>
+              <label className="block text-xs text-gray-500 mb-1">Latitude (manual)</label>
               <input
                 type="number"
                 step="any"
                 value={form.gps_latitude}
                 onChange={(e) => setForm((f) => ({ ...f, gps_latitude: e.target.value }))}
                 placeholder="-12.345678"
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
+                className="w-full border border-gray-200 rounded-lg lg:rounded-xl px-2.5 py-1.5 lg:py-2 text-xs lg:text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1.5">Longitude (manual)</label>
+              <label className="block text-xs text-gray-500 mb-1">Longitude (manual)</label>
               <input
                 type="number"
                 step="any"
                 value={form.gps_longitude}
                 onChange={(e) => setForm((f) => ({ ...f, gps_longitude: e.target.value }))}
                 placeholder="-38.123456"
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
+                className="w-full border border-gray-200 rounded-lg lg:rounded-xl px-2.5 py-1.5 lg:py-2 text-xs lg:text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
               />
             </div>
           </div>
@@ -243,7 +243,7 @@ export default function ConfiguracoesPage() {
 
         {/* Radius */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-xs lg:text-sm font-medium text-gray-700 mb-2">
             Raio permitido: <span className="text-green-700 font-bold">{form.gps_radius_meters}m</span>
           </label>
           <input
@@ -256,11 +256,11 @@ export default function ConfiguracoesPage() {
             className="w-full accent-green-600"
           />
           <div className="flex justify-between text-xs text-gray-400 mt-1">
-            <span>50m (preciso)</span>
-            <span>500m (flexível)</span>
+            <span>50m</span>
+            <span>500m</span>
           </div>
-          <p className="text-xs text-gray-400 mt-1.5">
-            Distância máxima da loja para registrar ponto. Recomendado: 200–400m para acomodar variações entre GPS de celulares e computadores.
+          <p className="text-xs text-gray-400 mt-1">
+            Máx. para registrar ponto. Recomendado: 200–400m.
           </p>
         </div>
 
@@ -281,7 +281,7 @@ export default function ConfiguracoesPage() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full bg-amber-900 hover:bg-amber-950 disabled:bg-amber-400 text-white font-semibold rounded-xl py-3 text-sm transition-colors flex items-center justify-center gap-2"
+          className="w-full bg-amber-900 hover:bg-amber-950 disabled:bg-amber-400 text-white font-semibold rounded-lg lg:rounded-xl py-2 lg:py-3 text-xs lg:text-sm transition-colors flex items-center justify-center gap-2"
         >
           {saving ? (
             <>
@@ -298,23 +298,23 @@ export default function ConfiguracoesPage() {
       </div>
 
       {/* Info box */}
-      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5">
-        <div className="flex items-center gap-2 font-semibold text-blue-800 text-sm mb-3">
-          <Info size={16} />
+      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-3 lg:p-5">
+        <div className="flex items-center gap-2 font-semibold text-blue-800 text-xs lg:text-sm mb-2 lg:mb-3">
+          <Info size={14} className="shrink-0" />
           Como funciona
         </div>
-        <div className="text-sm text-blue-700 space-y-2">
+        <div className="text-xs lg:text-sm text-blue-700 space-y-1.5 lg:space-y-2">
           <div className="flex items-start gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
-            O funcionário só pode registrar ponto dentro do raio definido aqui.
+            <span className="w-1 h-1 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+            O funcionário registra ponto dentro do raio definido.
           </div>
           <div className="flex items-start gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
-            O WiFi é confirmado manualmente pelo funcionário no momento do ponto.
+            <span className="w-1 h-1 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+            WiFi é confirmado manualmente pelo funcionário.
           </div>
           <div className="flex items-start gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
-            Use o botão de localização <strong>estando dentro da loja</strong> para precisão máxima. <strong>Prefira capturar pelo celular</strong> — computadores usam WiFi/IP e podem errar mais de 200m.
+            <span className="w-1 h-1 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+            Use <strong>celular</strong> para capturar a localização — é mais preciso que computador.
           </div>
         </div>
       </div>

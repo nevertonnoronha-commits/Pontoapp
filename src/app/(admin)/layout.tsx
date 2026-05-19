@@ -18,11 +18,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <AdminNav userName={userData?.name || ""} />
       <div className="flex-1 flex flex-col lg:ml-64">
         {/* Mobile header */}
-        <header className="bg-amber-900 text-white px-5 py-3.5 lg:hidden flex items-center justify-between">
+        <header className="bg-amber-900 text-white px-4 py-2.5 lg:hidden flex items-center justify-between">
           <Logo size="sm" variant="light" />
-          <span className="text-sm text-amber-200/80">{userData?.name}</span>
+          <span className="text-xs text-amber-200/80">{userData?.name}</span>
         </header>
-        <main className="flex-1 p-5 pb-24 lg:pb-8">{children}</main>
+        <main className="flex-1 px-4 py-4 pb-20 lg:px-8 lg:py-6 lg:pb-8">{children}</main>
       </div>
     </div>
   );
