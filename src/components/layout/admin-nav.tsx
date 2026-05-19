@@ -76,19 +76,19 @@ export default function AdminNav({ userName }: { userName: string }) {
 
       {/* Mobile bottom nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-amber-900 border-t border-amber-800/60 flex lg:hidden z-50 safe-area-pb">
-        {links.slice(0, 5).map((l) => {
+        {links.map((l) => {
           const Icon = l.icon;
           const active = pathname === l.href || pathname.startsWith(l.href + "/");
           return (
             <Link
               key={l.href}
               href={l.href}
-              className={`flex-1 flex flex-col items-center py-2.5 gap-1 transition-colors ${
+              className={`flex-1 flex flex-col items-center py-2 gap-0.5 transition-colors ${
                 active ? "text-white" : "text-amber-400"
               }`}
             >
-              <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
-              <span className={`text-[10px] leading-none ${active ? "font-semibold" : ""}`}>
+              <Icon size={18} strokeWidth={active ? 2.5 : 1.8} />
+              <span className={`text-[9px] leading-none ${active ? "font-semibold" : ""}`}>
                 {l.label}
               </span>
             </Link>

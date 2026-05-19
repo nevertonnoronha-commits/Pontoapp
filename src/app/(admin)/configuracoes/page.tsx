@@ -20,13 +20,14 @@ export default function ConfiguracoesPage() {
     wifi_ssid: "",
     gps_latitude: "",
     gps_longitude: "",
-    gps_radius_meters: "200",
+    gps_radius_meters: "300",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -53,6 +54,7 @@ export default function ConfiguracoesPage() {
   async function useCurrentLocation() {
     setLocating(true);
     setError("");
+    setGpsAccuracy(null);
     try {
       const pos = await getCurrentPosition();
       setForm((f) => ({
@@ -60,6 +62,7 @@ export default function ConfiguracoesPage() {
         gps_latitude: pos.coords.latitude.toFixed(7),
         gps_longitude: pos.coords.longitude.toFixed(7),
       }));
+      setGpsAccuracy(Math.round(pos.coords.accuracy));
     } catch {
       setError("Não foi possível obter a localização. Verifique se o GPS está habilitado no navegador.");
     } finally {
@@ -188,9 +191,22 @@ export default function ConfiguracoesPage() {
           </button>
 
           {form.gps_latitude && form.gps_longitude ? (
-            <div className="flex items-center gap-2.5 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-800">
-              <CheckCircle2 size={16} className="text-green-600 shrink-0" />
-              Localização definida: {parseFloat(form.gps_latitude).toFixed(5)}, {parseFloat(form.gps_longitude).toFixed(5)}
+            <div className={`rounded-xl px-4 py-3 text-sm space-y-1 border ${gpsAccuracy && gpsAccuracy > 100 ? "bg-amber-50 border-amber-200 text-amber-800" : "bg-green-50 border-green-200 text-green-800"}`}>
+              <div className="flex items-center gap-2.5">
+                {gpsAccuracy && gpsAccuracy > 100
+                  ? <AlertCircle size={16} className="text-amber-600 shrink-0" />
+                  : <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+                }
+                <span>
+                  Localização: {parseFloat(form.gps_latitude).toFixed(5)}, {parseFloat(form.gps_longitude).toFixed(5)}
+                  {gpsAccuracy !== null && <span className="ml-2 font-medium">(precisão: ±{gpsAccuracy}m)</span>}
+                </span>
+              </div>
+              {gpsAccuracy && gpsAccuracy > 100 && (
+                <p className="text-xs text-amber-700 pl-6">
+                  Precisão baixa — computadores usam WiFi/IP para localização, que pode errar centenas de metros. <strong>Capture a localização pelo celular</strong> para melhor resultado.
+                </p>
+              )}
             </div>
           ) : (
             <div className="flex items-center gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
@@ -244,7 +260,7 @@ export default function ConfiguracoesPage() {
             <span>500m (flexível)</span>
           </div>
           <p className="text-xs text-gray-400 mt-1.5">
-            Distância máxima da loja para registrar ponto. Recomendado: 100–200m.
+            Distância máxima da loja para registrar ponto. Recomendado: 200–400m para acomodar variações entre GPS de celulares e computadores.
           </p>
         </div>
 
@@ -298,7 +314,7 @@ export default function ConfiguracoesPage() {
           </div>
           <div className="flex items-start gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
-            Use o botão de localização <strong>estando dentro da loja</strong> para precisão máxima.
+            Use o botão de localização <strong>estando dentro da loja</strong> para precisão máxima. <strong>Prefira capturar pelo celular</strong> — computadores usam WiFi/IP e podem errar mais de 200m.
           </div>
         </div>
       </div>
