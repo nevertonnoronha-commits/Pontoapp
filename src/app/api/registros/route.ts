@@ -28,6 +28,48 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(data);
 }
 
+export async function POST(req: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+
+  const { data: userData } = await supabase.from("users").select("organization_id, role").eq("id", user.id).single();
+  if (userData?.role === "employee") return NextResponse.json({ error: "Sem permissão." }, { status: 403 });
+
+  const { user_id, punch_type, recorded_at, edit_reason } = await req.json();
+  if (!user_id || !punch_type || !recorded_at || !edit_reason) {
+    return NextResponse.json({ error: "Dados incompletos." }, { status: 400 });
+  }
+
+  const service = await createServiceClient();
+  const { data: record, error } = await service.from("time_records").insert({
+    user_id,
+    organization_id: userData?.organization_id,
+    punch_type,
+    recorded_at,
+    status: "manual",
+    is_manual_edit: true,
+    edited_by: user.id,
+    edit_reason,
+    gps_verified: false,
+    wifi_confirmed: false,
+    face_verified: false,
+  }).select().single();
+
+  if (error) return NextResponse.json({ error: "Erro ao criar registro." }, { status: 500 });
+
+  await service.from("audit_logs").insert({
+    organization_id: userData?.organization_id,
+    user_id: user.id,
+    action: "record_manually_created",
+    entity_type: "time_records",
+    entity_id: record.id,
+    new_values: { user_id, punch_type, recorded_at, edit_reason },
+  });
+
+  return NextResponse.json({ success: true, record });
+}
+
 export async function PATCH(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
