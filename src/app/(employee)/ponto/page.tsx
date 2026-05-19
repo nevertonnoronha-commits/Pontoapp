@@ -57,8 +57,10 @@ export default function PontoPage() {
       .from("store_configs").select("*").eq("organization_id", userData.organization_id).maybeSingle();
     setStoreConfig(config);
 
-    const { data: facialProfile } = await supabase
+    const { data: facialProfile, error: faceError } = await supabase
       .from("facial_profiles").select("id").eq("user_id", user.id).eq("is_active", true).maybeSingle();
+    if (faceError) console.error("Facial profile query error:", faceError);
+    console.log("Facial profile found:", !!facialProfile, facialProfile);
     setHasFacialProfile(!!facialProfile);
 
     const today = new Date().toLocaleDateString("sv-SE");
@@ -318,6 +320,11 @@ export default function PontoPage() {
       {hasFacialProfile && !faceResult && canPunch && isIdle && !showFaceVerify && (
         <p className="text-center text-xs text-purple-600">
           Ao registrar, você será solicitado a verificar sua identidade pela câmera
+        </p>
+      )}
+      {!hasFacialProfile && canPunch && isIdle && !showFaceVerify && (
+        <p className="text-center text-xs text-gray-500">
+          Foto facial não configurada. Contacte o administrador para ativar o reconhecimento.
         </p>
       )}
     </div>
