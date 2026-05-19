@@ -69,14 +69,31 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
         });
       }
     } catch (err) {
-      console.error("Camera access error:", err);
-      const errorMsg = err instanceof DOMException
-        ? err.name === "NotAllowedError"
-          ? "Permissão negada. Por favor, permita acesso à câmera nas configurações do dispositivo."
-          : err.name === "NotFoundError"
-          ? "Nenhuma câmera encontrada no dispositivo."
-          : err.message
-        : "Não foi possível acessar a câmera.";
+      console.error("Camera access error - Full error:", err);
+      console.error("Error type:", err instanceof DOMException ? "DOMException" : typeof err);
+      console.error("Error name:", (err as any)?.name);
+      console.error("Error message:", (err as any)?.message);
+
+      let errorMsg = "Não foi possível acessar a câmera.";
+
+      if (err instanceof DOMException) {
+        console.error("DOMException detected. Name:", err.name);
+        if (err.name === "NotAllowedError") {
+          errorMsg = "Permissão negada. Por favor, permita acesso à câmera nas configurações do dispositivo.";
+        } else if (err.name === "NotFoundError") {
+          errorMsg = "Nenhuma câmera encontrada no dispositivo.";
+        } else if (err.name === "NotReadableError") {
+          errorMsg = "Câmera já está sendo usada por outro aplicativo.";
+        } else if (err.name === "SecurityError") {
+          errorMsg = "Erro de segurança. Verifique se está usando HTTPS.";
+        } else {
+          errorMsg = `Erro: ${err.name} - ${err.message}`;
+        }
+      } else if (err instanceof Error) {
+        errorMsg = `Erro: ${err.message}`;
+      }
+
+      console.log("Final error message:", errorMsg);
       setError(errorMsg);
       setStep("idle");
       setCameraReady(false);
@@ -189,22 +206,52 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
   // Step: idle
   if (step === "idle") {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 space-y-4 text-center">
-        <div className="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto">
-          <ScanFace size={28} className="text-purple-600" />
+      <div className={`rounded-2xl border p-5 space-y-4 text-center ${error ? "border-red-200 bg-red-50" : "border-gray-200 bg-gray-50"}`}>
+        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto ${error ? "bg-red-100" : "bg-purple-100"}`}>
+          <ScanFace size={28} className={error ? "text-red-600" : "text-purple-600"} />
         </div>
         <div>
-          <p className="font-semibold text-gray-800 text-sm">Verificação Facial</p>
-          <p className="text-xs text-gray-400 mt-0.5">Tire uma selfie para confirmar sua identidade</p>
+          <p className={`font-semibold text-sm ${error ? "text-red-800" : "text-gray-800"}`}>
+            {error ? "Erro ao acessar câmera" : "Verificação Facial"}
+          </p>
+          <p className={`text-xs mt-0.5 ${error ? "text-red-600" : "text-gray-400"}`}>
+            {error ? error : "Tire uma selfie para confirmar sua identidade"}
+          </p>
         </div>
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error && (
+          <div className="bg-white rounded-lg p-3 text-left text-xs text-gray-600 border border-red-100">
+            <p className="font-semibold text-red-700 mb-1">Solução:</p>
+            <ul className="list-disc list-inside space-y-1 text-gray-700">
+              {error.includes("Permissão") && (
+                <>
+                  <li>Verifique as permissões do navegador</li>
+                  <li>Vá para configurações do site e permita câmera</li>
+                </>
+              )}
+              {error.includes("câmera não encontrada") && (
+                <li>Seu dispositivo não possui câmera ou ela não foi detectada</li>
+              )}
+              {error.includes("já está sendo usada") && (
+                <li>Feche outros aplicativos que estão usando a câmera</li>
+              )}
+              {error.includes("HTTPS") && (
+                <li>O aplicativo precisa estar em HTTPS para acessar a câmera</li>
+              )}
+              <li>Tente novamente após resolver o problema</li>
+            </ul>
+          </div>
+        )}
         <div className="flex gap-2">
           <button
             onClick={openCamera}
-            className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl py-3 text-sm font-semibold transition-colors"
+            className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-colors ${
+              error
+                ? "border border-red-200 text-red-700 hover:bg-red-100"
+                : "bg-purple-600 hover:bg-purple-700 text-white"
+            }`}
           >
             <Camera size={18} />
-            Abrir câmera
+            {error ? "Tentar novamente" : "Abrir câmera"}
           </button>
           {onSkip && (
             <button
