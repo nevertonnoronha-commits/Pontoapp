@@ -29,6 +29,7 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
   const [capturedUrl, setCapturedUrl] = useState<string | null>(null);
   const [similarity, setSimilarity] = useState<number | null>(null);
   const [verified, setVerified] = useState<boolean | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -40,6 +41,7 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
   async function openCamera() {
     setStep("camera");
     setError("");
+    setCameraReady(false);
     setCapturedUrl(null);
     setSimilarity(null);
     setVerified(null);
@@ -51,11 +53,33 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
+        await new Promise<void>((resolve, reject) => {
+          const checkStream = () => {
+            if (videoRef.current?.readyState === 2) {
+              videoRef.current.play().then(() => {
+                setCameraReady(true);
+                resolve();
+              }).catch(reject);
+            } else {
+              setTimeout(checkStream, 50);
+            }
+          };
+          checkStream();
+          setTimeout(() => reject(new Error("Camera initialization timeout")), 5000);
+        });
       }
-    } catch {
-      setError("Não foi possível acessar a câmera. Verifique as permissões.");
+    } catch (err) {
+      console.error("Camera access error:", err);
+      const errorMsg = err instanceof DOMException
+        ? err.name === "NotAllowedError"
+          ? "Permissão negada. Por favor, permita acesso à câmera nas configurações do dispositivo."
+          : err.name === "NotFoundError"
+          ? "Nenhuma câmera encontrada no dispositivo."
+          : err.message
+        : "Não foi possível acessar a câmera.";
+      setError(errorMsg);
       setStep("idle");
+      setCameraReady(false);
     }
   }
 
@@ -200,8 +224,15 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
   if (step === "camera") {
     return (
       <div className="rounded-2xl overflow-hidden border border-gray-200 space-y-0">
-        <div className="relative bg-black aspect-[4/3] max-h-64">
+        <div className="relative bg-black aspect-[4/3] max-h-64 flex items-center justify-center">
           <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+          {/* Loading indicator while camera initializes */}
+          {!cameraReady && (
+            <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2">
+              <Loader2 size={24} className="text-white animate-spin" />
+              <p className="text-xs text-white">Inicializando câmera...</p>
+            </div>
+          )}
           {/* Face guide oval */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="w-36 h-44 rounded-full border-4 border-white/60 border-dashed" />
@@ -210,14 +241,15 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
         </div>
         <div className="bg-white p-4 flex gap-2">
           <button
-            onClick={() => { stopCamera(); setStep("idle"); }}
+            onClick={() => { stopCamera(); setStep("idle"); setCameraReady(false); }}
             className="flex items-center gap-1.5 border border-gray-200 text-gray-500 hover:bg-gray-100 rounded-xl px-4 py-2.5 text-sm transition-colors"
           >
             <X size={16} />
           </button>
           <button
             onClick={capture}
-            className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors"
+            disabled={!cameraReady}
+            className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors"
           >
             <Camera size={18} />
             Capturar
