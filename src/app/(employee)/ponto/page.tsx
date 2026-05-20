@@ -300,11 +300,9 @@ export default function PontoPage() {
         </div>
       )}
 
-      {/* Face Verify Component */}
-      {showFaceVerify && userId && isIdle && (
-        <div className="glass-card rounded-3xl p-4 border border-white/[0.08]">
-          <FaceVerify userId={userId} onResult={handleFaceResult} />
-        </div>
+      {/* Face Verify — Portal full-screen, rendered outside DOM hierarchy */}
+      {showFaceVerify && userId && (
+        <FaceVerify userId={userId} onResult={handleFaceResult} />
       )}
 
       {/* Punch button area */}

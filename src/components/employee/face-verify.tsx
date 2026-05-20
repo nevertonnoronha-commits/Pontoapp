@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Camera, RefreshCw, CheckCircle2, XCircle, Loader2, ScanFace, X, ShieldCheck } from "lucide-react";
 
 export type FaceVerifyResult =
@@ -30,6 +31,9 @@ export function FaceVerify({ userId, onResult }: FaceVerifyProps) {
   const [similarity, setSimilarity] = useState<number | null>(null);
   const [verified, setVerified] = useState<boolean | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -184,9 +188,12 @@ export function FaceVerify({ userId, onResult }: FaceVerifyProps) {
     openCamera();
   }
 
-  // ─── FULL-SCREEN OVERLAY ────────────────────────────────────────────────────
-  return (
-    <div className="fixed inset-0 z-50 bg-[#07080A] flex flex-col">
+  // ─── FULL-SCREEN OVERLAY via Portal ─────────────────────────────────────────
+  // Portal bypasses backdrop-filter stacking contexts in parent elements
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] bg-[#07080A] flex flex-col">
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 pt-safe-top py-4 shrink-0">
@@ -363,6 +370,7 @@ export function FaceVerify({ userId, onResult }: FaceVerifyProps) {
           <div className="h-14" />
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
