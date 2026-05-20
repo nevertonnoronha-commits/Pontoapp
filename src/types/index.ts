@@ -27,6 +27,7 @@ export interface StoreConfig {
   gps_longitude: number;
   gps_radius_meters: number;
   store_name: string | null;
+  allowed_ip: string | null;
   updated_at: string;
   updated_by: string | null;
 }
