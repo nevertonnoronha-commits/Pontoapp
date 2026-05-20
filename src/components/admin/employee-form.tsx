@@ -126,29 +126,34 @@ export function EmployeeForm({
             await new Promise<void>((res) => { img.onload = () => res(); });
 
             const detection = await faceapi
-              .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.3 }))
+              .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.1, inputSize: 512 }))
               .withFaceLandmarks()
               .withFaceDescriptor();
 
-            await supabase.from("facial_profiles").upsert({
-              user_id: userId,
-              organization_id: organizationId,
-              face_descriptor: detection ? Array.from(detection.descriptor) : null,
-              photo_url: publicUrl,
-              trained_at: new Date().toISOString(),
-              is_active: true,
-            }, { onConflict: "user_id" });
-
+            const descriptor = detection ? Array.from(detection.descriptor) : null;
+            const saveRes = await fetch("/api/admin/facial-profile", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                user_id: userId,
+                face_descriptor: descriptor,
+                photo_url: publicUrl,
+                is_active: !!detection,
+              }),
+            });
+            if (!saveRes.ok) throw new Error("Erro ao salvar perfil facial.");
             setFaceTrainStatus(detection ? "ok" : "photo_only");
           } catch {
-            await supabase.from("facial_profiles").upsert({
-              user_id: userId,
-              organization_id: organizationId,
-              face_descriptor: null,
-              photo_url: publicUrl,
-              trained_at: new Date().toISOString(),
-              is_active: true,
-            }, { onConflict: "user_id" });
+            await fetch("/api/admin/facial-profile", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                user_id: userId,
+                face_descriptor: null,
+                photo_url: publicUrl,
+                is_active: false,
+              }),
+            });
             setFaceTrainStatus("photo_only");
           }
         } else {
@@ -195,8 +200,8 @@ export function EmployeeForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Personal info */}
-      <div className="bg-white rounded-xl border border-gray-100 p-6 space-y-4">
-        <h3 className="font-semibold text-gray-800">Dados Pessoais</h3>
+      <div className="glass-card rounded-xl border border-white/[0.08] p-6 space-y-4">
+        <h3 className="font-semibold text-slate-200">Dados Pessoais</h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
@@ -271,8 +276,8 @@ export function EmployeeForm({
       </div>
 
       {/* Work schedule */}
-      <div className="bg-white rounded-xl border border-gray-100 p-6 space-y-4">
-        <h3 className="font-semibold text-gray-800">Jornada de Trabalho</h3>
+      <div className="glass-card rounded-xl border border-white/[0.08] p-6 space-y-4">
+        <h3 className="font-semibold text-slate-200">Jornada de Trabalho</h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="space-y-1.5">
@@ -373,53 +378,53 @@ export function EmployeeForm({
       </div>
 
       {/* Facial photo */}
-      <div className="bg-white rounded-xl border border-gray-100 p-6 space-y-4">
+      <div className="glass-card rounded-xl border border-white/[0.08] p-6 space-y-4">
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="font-semibold text-gray-800">Reconhecimento Facial</h3>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <h3 className="font-semibold text-slate-200">Reconhecimento Facial</h3>
+            <p className="text-sm text-slate-400 mt-0.5">
               Foto do rosto para verificar identidade ao bater ponto.
             </p>
           </div>
           {faceTrainStatus === "ok" && (
-            <span className="flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-1 shrink-0">
+            <span className="flex items-center gap-1 text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded-full px-2.5 py-1 shrink-0">
               <CheckCircle2 className="h-3 w-3" />Treinado
             </span>
           )}
           {faceTrainStatus === "photo_only" && (
-            <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1 shrink-0">Foto salva</span>
+            <span className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-2.5 py-1 shrink-0">Foto salva</span>
           )}
           {faceTrainStatus === "training" && (
-            <span className="flex items-center gap-1 text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded-full px-2.5 py-1 shrink-0">
+            <span className="flex items-center gap-1 text-xs text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-full px-2.5 py-1 shrink-0">
               <Loader2 className="h-3 w-3 animate-spin" />Treinando...
             </span>
           )}
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="h-24 w-24 rounded-xl bg-gray-100 border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden shrink-0">
+          <div className="h-24 w-24 rounded-xl bg-white/[0.04] border-2 border-dashed border-white/[0.12] flex items-center justify-center overflow-hidden shrink-0">
             {photoPreview ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={photoPreview} alt="Foto" className="w-full h-full object-cover" />
             ) : (
-              <Camera className="h-8 w-8 text-gray-300" />
+              <Camera className="h-8 w-8 text-slate-500" />
             )}
           </div>
           <div className="space-y-2">
             <label htmlFor="photo-upload" className="cursor-pointer">
-              <div className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+              <div className="flex items-center gap-2 px-4 py-2 border border-white/[0.1] rounded-lg text-sm font-medium text-slate-300 hover:bg-white/[0.05] transition-colors">
                 <Upload className="h-4 w-4" />
                 {photoPreview ? "Trocar foto" : "Enviar foto"}
               </div>
             </label>
             <input id="photo-upload" type="file" accept="image/*" capture="user" className="hidden" onChange={handlePhotoChange} />
-            <p className="text-xs text-gray-400">JPG, PNG ou WebP · máx 5MB</p>
-            <p className="text-xs text-gray-400">Use foto frontal, bem iluminada</p>
+            <p className="text-xs text-slate-500">JPG, PNG ou WebP · máx 5MB</p>
+            <p className="text-xs text-slate-500">Use foto frontal, bem iluminada</p>
           </div>
         </div>
 
         {faceTrainStatus === "photo_only" && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800">
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 text-xs text-amber-300">
             Rosto não detectado na foto. Use uma foto frontal com boa iluminação. O reconhecimento não estará ativo para este funcionário.
           </div>
         )}
@@ -437,7 +442,7 @@ export function EmployeeForm({
         </Button>
         <Button
           type="submit"
-          className="flex-1 bg-green-600 hover:bg-green-700"
+          className="flex-1 bg-yellow-500 hover:bg-yellow-400 text-black"
           disabled={loading}
         >
           {loading ? (

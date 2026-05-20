@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
-import { Camera, RefreshCw, CheckCircle2, XCircle, Loader2, ScanFace, X } from "lucide-react";
+import { Camera, RefreshCw, CheckCircle2, XCircle, Loader2, ScanFace, X, ShieldCheck } from "lucide-react";
 
 export type FaceVerifyResult =
   | { verified: true; similarity: number; photoDataUrl: string }
@@ -10,7 +10,6 @@ export type FaceVerifyResult =
 interface FaceVerifyProps {
   userId: string;
   onResult: (result: FaceVerifyResult) => void;
-  onSkip?: () => void;
 }
 
 type Step = "idle" | "camera" | "capturing" | "processing" | "done";
@@ -18,11 +17,11 @@ type Step = "idle" | "camera" | "capturing" | "processing" | "done";
 const MODEL_URL = "/models";
 const SIMILARITY_THRESHOLD = 0.50;
 
-export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
+export function FaceVerify({ userId, onResult }: FaceVerifyProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const openingCameraRef = useRef(false);
+  const openingRef = useRef(false);
 
   const [step, setStep] = useState<Step>("idle");
   const [statusMsg, setStatusMsg] = useState("");
@@ -33,39 +32,20 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
   const [cameraReady, setCameraReady] = useState(false);
 
   const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => {
-        track.stop();
-      });
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
   }, []);
 
-  // Stop camera when done or leaving the component
-  useEffect(() => {
-    if (step === "done") {
-      stopCamera();
-    }
-  }, [step, stopCamera]);
+  useEffect(() => { if (step === "done") stopCamera(); }, [step, stopCamera]);
+  useEffect(() => () => stopCamera(), [stopCamera]);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      stopCamera();
-    };
-  }, [stopCamera]);
+  // Auto-open camera on mount
+  useEffect(() => { openCamera(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function openCamera() {
-    // Prevent multiple simultaneous camera open attempts
-    if (openingCameraRef.current) {
-      console.log("Camera opening already in progress, ignoring request");
-      return;
-    }
-    openingCameraRef.current = true;
-
+    if (openingRef.current) return;
+    openingRef.current = true;
     setStep("camera");
     setError("");
     setCameraReady(false);
@@ -75,100 +55,45 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
 
     try {
       stopCamera();
-
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       });
-
-      if (!videoRef.current) {
-        stream.getTracks().forEach((track) => track.stop());
-        throw new Error("Video element not found");
-      }
-
+      if (!videoRef.current) { stream.getTracks().forEach((t) => t.stop()); throw new Error("Video lost"); }
       streamRef.current = stream;
       videoRef.current.srcObject = stream;
 
-      // Play immediately and set ready when it actually plays
       try {
         await videoRef.current.play();
-        openingCameraRef.current = false;
+        openingRef.current = false;
         setCameraReady(true);
-      } catch (playErr) {
-        // If play fails, wait for canplay event instead
+      } catch {
         await new Promise<void>((resolve, reject) => {
-          if (!videoRef.current) {
-            reject(new Error("Video element lost"));
-            return;
-          }
-
-          const timeoutId = setTimeout(() => {
-            cleanup();
-            reject(new Error("Camera initialization timeout"));
-          }, 5000);
-
+          if (!videoRef.current) { reject(new Error("Video lost")); return; }
+          const tid = setTimeout(() => { cleanup(); reject(new Error("Camera timeout")); }, 8000);
           const cleanup = () => {
-            clearTimeout(timeoutId);
-            if (videoRef.current) {
-              videoRef.current.removeEventListener("canplay", handleCanPlay);
-              videoRef.current.removeEventListener("loadstart", handleLoadStart);
-              videoRef.current.removeEventListener("error", handleVideoError);
-            }
+            clearTimeout(tid);
+            videoRef.current?.removeEventListener("canplay", onReady);
+            videoRef.current?.removeEventListener("error", onErr);
           };
-
-          const handleCanPlay = () => {
-            cleanup();
-            openingCameraRef.current = false;
-            setCameraReady(true);
-            resolve();
-          };
-
-          const handleLoadStart = () => {
-            // loadstart fires when video source is being loaded, even if not playable yet
-            // Continue waiting for canplay, but reset timeout on this signal
-            console.log("Video loadstart event fired");
-          };
-
-          const handleVideoError = () => {
-            cleanup();
-            reject(new Error("Video element error"));
-          };
-
-          // Check if already in a playable state (readyState >= 2 means at least some data available)
-          if (videoRef.current!.readyState >= 2) {
-            handleCanPlay();
-            return;
-          }
-
-          videoRef.current!.addEventListener("canplay", handleCanPlay, { once: true });
-          videoRef.current!.addEventListener("loadstart", handleLoadStart);
-          videoRef.current!.addEventListener("error", handleVideoError, { once: true });
+          const onReady = () => { cleanup(); openingRef.current = false; setCameraReady(true); resolve(); };
+          const onErr  = () => { cleanup(); reject(new Error("Video error")); };
+          if (videoRef.current!.readyState >= 2) { onReady(); return; }
+          videoRef.current!.addEventListener("canplay", onReady, { once: true });
+          videoRef.current!.addEventListener("error",   onErr,   { once: true });
         });
       }
     } catch (err) {
-      console.error("Camera access error:", err);
-      openingCameraRef.current = false;
+      openingRef.current = false;
       stopCamera();
-
-      let errorMsg = "Não foi possível acessar a câmera.";
-
+      let msg = "Não foi possível acessar a câmera.";
       if (err instanceof DOMException) {
-        if (err.name === "NotAllowedError") {
-          errorMsg = "Permissão negada. Por favor, permita acesso à câmera nas configurações do dispositivo.";
-        } else if (err.name === "NotFoundError") {
-          errorMsg = "Nenhuma câmera encontrada no dispositivo.";
-        } else if (err.name === "NotReadableError") {
-          errorMsg = "Câmera já está sendo usada por outro aplicativo.";
-        } else if (err.name === "SecurityError") {
-          errorMsg = "Erro de segurança. Verifique se está usando HTTPS.";
-        } else {
-          errorMsg = `Erro: ${err.name} - ${err.message}`;
-        }
-      } else if (err instanceof Error) {
-        errorMsg = `Erro: ${err.message}`;
-      }
-
-      setError(errorMsg);
+        if (err.name === "NotAllowedError")  msg = "Permissão negada. Permita acesso à câmera nas configurações.";
+        else if (err.name === "NotFoundError") msg = "Nenhuma câmera encontrada no dispositivo.";
+        else if (err.name === "NotReadableError") msg = "Câmera em uso por outro aplicativo.";
+        else msg = err.message;
+      } else if (err instanceof Error) msg = err.message;
+      setError(msg);
       setStep("idle");
       setCameraReady(false);
     }
@@ -177,29 +102,22 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
   async function capture() {
     if (!videoRef.current || !canvasRef.current) return;
     setStep("capturing");
-
     try {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
+      canvas.width = video.videoWidth || 1280;
+      canvas.height = video.videoHeight || 720;
       const ctx = canvas.getContext("2d");
-
-      if (!ctx) {
-        throw new Error("Could not get canvas context");
-      }
-
+      if (!ctx) throw new Error("Canvas context unavailable");
       ctx.drawImage(video, 0, 0);
       const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
       setCapturedUrl(dataUrl);
       stopCamera();
-
       setStep("processing");
       await processFace(dataUrl);
     } catch (err) {
-      console.error("Capture error:", err);
       stopCamera();
-      setError(err instanceof Error ? err.message : "Erro ao capturar foto");
+      setError(err instanceof Error ? err.message : "Erro ao capturar");
       setStep("idle");
     }
   }
@@ -208,7 +126,6 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
     try {
       setStatusMsg("Carregando modelos...");
       const faceapi = await import("face-api.js");
-
       if (!faceapi.nets.tinyFaceDetector.isLoaded) {
         await Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
@@ -216,65 +133,46 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
           faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
         ]);
       }
-
-      setStatusMsg("Buscando perfil facial...");
+      setStatusMsg("Buscando perfil...");
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       const { data: profile } = await supabase
-        .from("facial_profiles")
-        .select("face_descriptor")
-        .eq("user_id", userId)
-        .eq("is_active", true)
-        .maybeSingle();
+        .from("facial_profiles").select("face_descriptor")
+        .eq("user_id", userId).eq("is_active", true).maybeSingle();
 
       if (!profile?.face_descriptor) {
-        setVerified(null);
-        setStep("done");
+        setStep("done"); setVerified(null);
         onResult({ verified: false, reason: "no_profile", photoDataUrl: dataUrl });
         return;
       }
-
       setStatusMsg("Detectando rosto...");
       const img = new Image();
       img.src = dataUrl;
-      await new Promise<void>((res, rej) => {
-        img.onload = () => res();
-        img.onerror = rej;
-      });
+      await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = rej; });
 
       const detection = await faceapi
         .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.3 }))
-        .withFaceLandmarks()
-        .withFaceDescriptor();
+        .withFaceLandmarks().withFaceDescriptor();
 
       if (!detection) {
-        setVerified(false);
-        setSimilarity(null);
-        setStep("done");
+        setStep("done"); setVerified(false); setSimilarity(null);
         onResult({ verified: false, reason: "no_face", photoDataUrl: dataUrl });
         return;
       }
-
       setStatusMsg("Comparando...");
       const stored = new Float32Array(profile.face_descriptor as number[]);
-      const dist = faceapi.euclideanDistance(detection.descriptor, stored);
-      const sim = Math.max(0, 1 - dist);
+      const sim = Math.max(0, 1 - faceapi.euclideanDistance(detection.descriptor, stored));
       setSimilarity(sim);
 
       if (sim >= SIMILARITY_THRESHOLD) {
-        setVerified(true);
-        setStep("done");
+        setStep("done"); setVerified(true);
         onResult({ verified: true, similarity: sim, photoDataUrl: dataUrl });
       } else {
-        setVerified(false);
-        setStep("done");
+        setStep("done"); setVerified(false);
         onResult({ verified: false, reason: "no_match", photoDataUrl: dataUrl, similarity: sim });
       }
-    } catch (e) {
-      console.error("Face verify error:", e);
-      setError("Erro no reconhecimento. Tente novamente.");
-      setStep("done");
-      setVerified(false);
+    } catch {
+      setStep("done"); setVerified(false);
       onResult({ verified: false, reason: "error", photoDataUrl: dataUrl });
     } finally {
       setStatusMsg("");
@@ -282,196 +180,189 @@ export function FaceVerify({ userId, onResult, onSkip }: FaceVerifyProps) {
   }
 
   function retry() {
-    setCapturedUrl(null);
-    setVerified(null);
-    setSimilarity(null);
-    setError("");
+    setCapturedUrl(null); setVerified(null); setSimilarity(null); setError("");
     openCamera();
   }
 
-  // Step: idle
-  if (step === "idle") {
-    return (
-      <div className={`rounded-2xl border p-5 space-y-4 text-center ${error ? "border-red-200 bg-red-50" : "border-gray-200 bg-gray-50"}`}>
-        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto ${error ? "bg-red-100" : "bg-purple-100"}`}>
-          <ScanFace size={28} className={error ? "text-red-600" : "text-purple-600"} />
-        </div>
-        <div>
-          <p className={`font-semibold text-sm ${error ? "text-red-800" : "text-gray-800"}`}>
-            {error ? "Erro ao acessar câmera" : "Verificação Facial"}
-          </p>
-          <p className={`text-xs mt-0.5 ${error ? "text-red-600" : "text-gray-400"}`}>
-            {error ? error : "Tire uma selfie para confirmar sua identidade"}
-          </p>
-        </div>
-        {error && (
-          <div className="bg-white rounded-lg p-3 text-left text-xs text-gray-600 border border-red-100">
-            <p className="font-semibold text-red-700 mb-1">Solução:</p>
-            <ul className="list-disc list-inside space-y-1 text-gray-700">
-              {error.includes("Permissão") && (
-                <>
-                  <li>Verifique as permissões do navegador</li>
-                  <li>Vá para configurações do site e permita câmera</li>
-                </>
-              )}
-              {error.includes("câmera não encontrada") && (
-                <li>Seu dispositivo não possui câmera ou ela não foi detectada</li>
-              )}
-              {error.includes("já está sendo usada") && (
-                <li>Feche outros aplicativos que estão usando a câmera</li>
-              )}
-              {error.includes("HTTPS") && (
-                <li>O aplicativo precisa estar em HTTPS para acessar a câmera</li>
-              )}
-              <li>Tente novamente após resolver o problema</li>
-            </ul>
-          </div>
-        )}
-        <div className="flex gap-2">
-          <button
-            onClick={openCamera}
-            className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-colors ${
-              error
-                ? "border border-red-200 text-red-700 hover:bg-red-100"
-                : "bg-purple-600 hover:bg-purple-700 text-white"
-            }`}
-          >
-            <Camera size={18} />
-            {error ? "Tentar novamente" : "Abrir câmera"}
-          </button>
-          {onSkip && (
-            <button
-              onClick={onSkip}
-              className="flex items-center gap-1.5 border border-gray-200 text-gray-500 hover:bg-gray-100 rounded-xl px-3 py-3 text-sm transition-colors"
-              title="Pular verificação"
-            >
-              <X size={16} />
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
+  // ─── FULL-SCREEN OVERLAY ────────────────────────────────────────────────────
+  return (
+    <div className="fixed inset-0 z-50 bg-[#07080A] flex flex-col">
 
-  // Step: camera live
-  if (step === "camera") {
-    return (
-      <div className="rounded-2xl overflow-hidden border border-gray-200 space-y-0">
-        <div className="relative bg-black aspect-[4/3] max-h-64 flex items-center justify-center">
-          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-          {/* Loading indicator while camera initializes */}
-          {!cameraReady && (
-            <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2">
-              <Loader2 size={24} className="text-white animate-spin" />
-              <p className="text-xs text-white">Inicializando câmera...</p>
-            </div>
-          )}
-          {/* Face guide oval */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-36 h-44 rounded-full border-4 border-white/60 border-dashed" />
-          </div>
-          <canvas ref={canvasRef} className="hidden" />
-        </div>
-        <div className="bg-white p-4 flex gap-2">
-          <button
-            onClick={() => {
-              stopCamera();
-              setStep("idle");
-              setCameraReady(false);
-              setError("");
-            }}
-            className="flex items-center gap-1.5 border border-gray-200 text-gray-500 hover:bg-gray-100 rounded-xl px-4 py-2.5 text-sm transition-colors"
-          >
-            <X size={16} />
-          </button>
-          <button
-            onClick={capture}
-            disabled={!cameraReady}
-            className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors"
-          >
-            <Camera size={18} />
-            Capturar
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Step: processing
-  if (step === "processing" || step === "capturing") {
-    return (
-      <div className="rounded-2xl border border-purple-100 bg-purple-50 p-6 text-center space-y-3">
-        {capturedUrl && (
-          <img src={capturedUrl} alt="Foto capturada" className="w-20 h-20 rounded-xl object-cover mx-auto border-2 border-purple-200" />
-        )}
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 size={28} className="text-purple-600 animate-spin" />
-          <p className="text-sm font-medium text-purple-800">{statusMsg || "Processando..."}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Step: done
-  if (step === "done") {
-    // No profile — skip gracefully
-    if (verified === null) {
-      return (
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 text-center space-y-2">
-          <ScanFace size={32} className="text-gray-400 mx-auto" />
-          <p className="text-sm font-medium text-gray-600">Sem perfil facial cadastrado</p>
-          <p className="text-xs text-gray-400">O ponto será registrado sem verificação facial.</p>
-        </div>
-      );
-    }
-
-    if (verified) {
-      return (
-        <div className="rounded-2xl border border-green-200 bg-green-50 p-5 space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center shrink-0">
-              <CheckCircle2 size={22} className="text-green-600" />
-            </div>
-            <div>
-              <p className="font-semibold text-green-800 text-sm">Identidade confirmada</p>
-              <p className="text-xs text-green-600">
-                Similaridade: {similarity !== null ? Math.round(similarity * 100) : "--"}%
-              </p>
-            </div>
-            {capturedUrl && (
-              <img src={capturedUrl} alt="" className="w-10 h-10 rounded-lg object-cover ml-auto shrink-0 border-2 border-green-200" />
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    // Not verified
-    return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 p-5 space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center shrink-0">
-            <XCircle size={22} className="text-red-500" />
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold text-red-800 text-sm">Não reconhecido</p>
-            <p className="text-xs text-red-500">
-              {similarity !== null
-                ? `Similaridade: ${Math.round(similarity * 100)}% (mín. ${Math.round(SIMILARITY_THRESHOLD * 100)}%)`
-                : error || "Rosto não detectado. Tente novamente."}
-            </p>
-          </div>
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-5 pt-safe-top py-4 shrink-0">
+        <div className="flex items-center gap-2.5">
+          <ShieldCheck size={20} className="text-yellow-400" />
+          <span className="text-sm font-bold text-white tracking-wide">Verificação Facial</span>
         </div>
         <button
-          onClick={retry}
-          className="w-full flex items-center justify-center gap-2 border border-red-200 text-red-700 hover:bg-red-100 rounded-xl py-2.5 text-sm font-medium transition-colors"
+          onClick={() => { stopCamera(); onResult({ verified: false, reason: "error" }); }}
+          className="w-9 h-9 flex items-center justify-center rounded-full bg-white/[0.07] hover:bg-white/[0.12] text-slate-300 transition-colors"
         >
-          <RefreshCw size={15} />
-          Tentar novamente
+          <X size={18} />
         </button>
       </div>
-    );
-  }
 
-  return null;
+      {/* Camera / content area — flex-1 so it fills remaining space */}
+      <div className="flex-1 relative overflow-hidden">
+
+        {/* ── CAMERA STEP ── */}
+        {(step === "camera") && (
+          <>
+            <video
+              ref={videoRef}
+              autoPlay playsInline muted
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+
+            {/* Dark overlay with oval cutout via box-shadow */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div
+                className="w-64 h-80 rounded-[50%] border-[3px] border-yellow-400"
+                style={{ boxShadow: "0 0 0 100vmax rgba(0,0,0,0.65)" }}
+              />
+            </div>
+
+            {/* Camera loading */}
+            {!cameraReady && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#07080A]">
+                <Loader2 size={32} className="text-yellow-400 animate-spin" />
+                <p className="text-sm text-slate-400">Inicializando câmera...</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── IDLE / ERROR STEP ── */}
+        {step === "idle" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 px-8 text-center">
+            <div className="w-20 h-20 rounded-3xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center">
+              <ScanFace size={40} className="text-yellow-400" />
+            </div>
+            <div>
+              <p className="text-white font-bold text-lg">Câmera indisponível</p>
+              <p className="text-slate-400 text-sm mt-1.5 leading-relaxed">{error || "Permita o acesso à câmera para continuar."}</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── PROCESSING STEP ── */}
+        {(step === "processing" || step === "capturing") && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 px-8 text-center">
+            {capturedUrl && (
+              <div className="w-40 h-40 rounded-[50%] overflow-hidden border-4 border-yellow-400 shadow-[0_0_30px_rgba(234,179,8,0.3)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={capturedUrl} alt="" className="w-full h-full object-cover" />
+              </div>
+            )}
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 size={36} className="text-yellow-400 animate-spin" />
+              <p className="text-base font-semibold text-white">{statusMsg || "Processando..."}</p>
+              <p className="text-sm text-slate-400">Aguarde um momento</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── DONE STEP ── */}
+        {step === "done" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 px-8 text-center">
+            {/* Verified */}
+            {verified === true && (
+              <>
+                <div className="w-28 h-28 rounded-[50%] overflow-hidden border-4 border-yellow-400 shadow-[0_0_40px_rgba(234,179,8,0.4)]">
+                  {capturedUrl && <img src={capturedUrl} alt="" className="w-full h-full object-cover" />}
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-12 h-12 rounded-full bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center">
+                    <CheckCircle2 size={28} className="text-yellow-400" />
+                  </div>
+                  <p className="text-xl font-bold text-white">Identidade confirmada</p>
+                  <p className="text-sm text-yellow-400 font-semibold">
+                    {similarity !== null ? `${Math.round(similarity * 100)}% de compatibilidade` : ""}
+                  </p>
+                </div>
+              </>
+            )}
+
+            {/* No profile */}
+            {verified === null && (
+              <>
+                <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                  <ScanFace size={36} className="text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-white">Perfil biométrico incompleto</p>
+                  <p className="text-sm text-slate-400 mt-2">Contacte o administrador para recadastrar sua foto facial.</p>
+                </div>
+              </>
+            )}
+
+            {/* Not verified */}
+            {verified === false && (
+              <>
+                <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+                  <XCircle size={36} className="text-rose-400" />
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-white">Não reconhecido</p>
+                  <p className="text-sm text-slate-400 mt-2">
+                    {similarity !== null
+                      ? `Compatibilidade: ${Math.round(similarity * 100)}% (mín. ${Math.round(SIMILARITY_THRESHOLD * 100)}%)`
+                      : "Rosto não detectado. Posicione-se bem iluminado."}
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        <canvas ref={canvasRef} className="hidden" />
+      </div>
+
+      {/* Bottom controls */}
+      <div className="shrink-0 px-6 pb-10 pt-4 space-y-3">
+        {step === "camera" && (
+          <>
+            <p className="text-center text-xs text-slate-400 mb-4">
+              Centralize seu rosto dentro do oval e mantenha boa iluminação
+            </p>
+            <button
+              onClick={capture}
+              disabled={!cameraReady}
+              className="w-full flex items-center justify-center gap-3 bg-yellow-500 hover:bg-yellow-400 disabled:opacity-40 text-black font-bold rounded-2xl py-4 text-base transition-all shadow-[0_4px_24px_rgba(234,179,8,0.3)]"
+            >
+              <Camera size={22} />
+              Capturar foto
+            </button>
+          </>
+        )}
+
+        {step === "idle" && (
+          <button
+            onClick={openCamera}
+            className="w-full flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-2xl py-4 text-base transition-all"
+          >
+            <Camera size={20} />
+            Tentar novamente
+          </button>
+        )}
+
+        {step === "done" && verified === false && (
+          <button
+            onClick={retry}
+            className="w-full flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-2xl py-4 text-base transition-all"
+          >
+            <RefreshCw size={18} />
+            Tentar novamente
+          </button>
+        )}
+
+        {step === "done" && (verified === null || verified === true) && (
+          <div className="h-14" /> /* spacer so content doesn't look cut off */
+        )}
+
+        {(step === "processing" || step === "capturing") && (
+          <div className="h-14" />
+        )}
+      </div>
+    </div>
+  );
 }

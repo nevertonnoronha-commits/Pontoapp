@@ -22,13 +22,40 @@ export async function POST(req: NextRequest) {
   const parsed = registerPunchSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Dados inválidos." }, { status: 400 });
 
-  const { punch_type, gps_latitude, gps_longitude, gps_accuracy_meters, wifi_confirmed, wifi_ssid_reported, face_verified, face_similarity } = parsed.data;
+  const { punch_type, gps_latitude, gps_longitude, gps_accuracy_meters, wifi_ssid_reported, face_verified, face_similarity } = parsed.data;
+
+  // Auto-detect WiFi by IP — ignore client-sent wifi_confirmed
+  const requestIp =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    null;
 
   const { data: userData } = await supabase.from("users").select("organization_id").eq("id", user.id).single();
   if (!userData) return NextResponse.json({ error: "Usuário não encontrado." }, { status: 404 });
 
   const { data: config } = await supabase.from("store_configs").select("*").eq("organization_id", userData.organization_id).single();
   if (!config) return NextResponse.json({ error: "Configuração da loja não encontrada." }, { status: 404 });
+
+  // Enforce facial recognition server-side: if employee has an active profile, face must be verified
+  const { data: facialProfile } = await supabase
+    .from("facial_profiles")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("is_active", true)
+    .not("face_descriptor", "is", null)
+    .maybeSingle();
+
+  if (facialProfile && !face_verified) {
+    return NextResponse.json(
+      { error: "Reconhecimento facial obrigatório. Posicione seu rosto na câmera e tente novamente." },
+      { status: 403 }
+    );
+  }
+
+  // WiFi confirmed automatically by IP match
+  const wifi_confirmed = config.allowed_ip
+    ? requestIp === config.allowed_ip
+    : false;
 
   let gps_verified = false;
   let gps_distance_meters = null;
@@ -42,12 +69,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const today = new Date().toLocaleDateString("sv-SE");
+  // Always use Brazil timezone so server and client agree on what "today" is
+  const todayBrazil = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+  const startOfTodayUTC = new Date(todayBrazil + "T00:00:00-03:00").toISOString();
+
   const { data: todayRecords } = await supabase
     .from("time_records")
     .select("punch_type, recorded_at")
     .eq("user_id", user.id)
-    .gte("recorded_at", today + "T00:00:00")
+    .gte("recorded_at", startOfTodayUTC)
     .order("recorded_at", { ascending: false })
     .limit(20);
 
@@ -96,7 +126,7 @@ export async function POST(req: NextRequest) {
 
   if (insertError) return NextResponse.json({ error: "Erro ao registrar ponto." }, { status: 500 });
 
-  await recalcWorkday(service, user.id, userData.organization_id, today);
+  await recalcWorkday(service, user.id, userData.organization_id, todayBrazil);
 
   await service.from("audit_logs").insert({
     organization_id: userData.organization_id,
@@ -112,11 +142,16 @@ export async function POST(req: NextRequest) {
 }
 
 async function recalcWorkday(service: Awaited<ReturnType<typeof createServiceClient>>, userId: string, orgId: string, date: string) {
+  // date is always a Brazil calendar day (YYYY-MM-DD). Use explicit UTC bounds.
+  const startUTC = new Date(date + "T00:00:00-03:00").toISOString();
+  const endUTC   = new Date(date + "T23:59:59-03:00").toISOString();
+
   const { data: records } = await service
     .from("time_records")
     .select("punch_type, recorded_at")
     .eq("user_id", userId)
-    .gte("recorded_at", date + "T00:00:00")
+    .gte("recorded_at", startUTC)
+    .lte("recorded_at", endUTC)
     .order("recorded_at", { ascending: true });
 
   if (!records || records.length === 0) return;

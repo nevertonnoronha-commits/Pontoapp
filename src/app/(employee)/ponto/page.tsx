@@ -15,8 +15,8 @@ type LocationState = { status: "checking" | "ok" | "error"; distance?: number; m
 type PunchState = "idle" | "registering" | "success" | "error";
 
 const PUNCH_COLORS: Record<PunchType | "complete", string> = {
-  entry: "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-[0_4px_25px_rgba(16,185,129,0.25)] hover:shadow-[0_4px_30px_rgba(16,185,129,0.35)]",
-  lunch_return: "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 shadow-[0_4px_25px_rgba(16,185,129,0.25)] hover:shadow-[0_4px_30px_rgba(16,185,129,0.35)]",
+  entry: "bg-yellow-500 hover:bg-yellow-400 text-black shadow-[0_4px_25px_rgba(234,179,8,0.3)] hover:shadow-[0_4px_30px_rgba(234,179,8,0.45)]",
+  lunch_return: "bg-yellow-500 hover:bg-yellow-400 text-black shadow-[0_4px_25px_rgba(234,179,8,0.3)] hover:shadow-[0_4px_30px_rgba(234,179,8,0.45)]",
   lunch_out: "bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-400 hover:to-blue-500 shadow-[0_4px_25px_rgba(99,102,241,0.25)] hover:shadow-[0_4px_30px_rgba(99,102,241,0.35)]",
   exit: "bg-gradient-to-r from-rose-500 to-orange-600 hover:from-rose-400 hover:to-orange-500 shadow-[0_4px_25px_rgba(244,63,94,0.25)] hover:shadow-[0_4px_30px_rgba(244,63,94,0.35)]",
   complete: "bg-white/[0.04]",
@@ -26,7 +26,7 @@ export default function PontoPage() {
   const [time, setTime] = useState("");
   const [storeConfig, setStoreConfig] = useState<StoreConfig | null>(null);
   const [location, setLocation] = useState<LocationState>({ status: "checking" });
-  const [wifiConfirmed, setWifiConfirmed] = useState(false);
+  const [wifiStatus, setWifiStatus] = useState<"checking" | "ok" | "none">("checking");
   const [nextPunch, setNextPunch] = useState<PunchType | null>(null);
   const [punchState, setPunchState] = useState<PunchState>("idle");
   const [successMsg, setSuccessMsg] = useState("");
@@ -36,6 +36,7 @@ export default function PontoPage() {
   const [hasFacialProfile, setHasFacialProfile] = useState<boolean | null>(null);
   const [faceResult, setFaceResult] = useState<FaceVerifyResult | null>(null);
   const [showFaceVerify, setShowFaceVerify] = useState(false);
+  const [faceBlockedMsg, setFaceBlockedMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const tick = () => setTime(new Date().toLocaleTimeString("pt-BR"));
@@ -58,12 +59,13 @@ export default function PontoPage() {
     setStoreConfig(config);
 
     const { data: facialProfile, error: faceError } = await supabase
-      .from("facial_profiles").select("id").eq("user_id", user.id).eq("is_active", true).maybeSingle();
+      .from("facial_profiles").select("id").eq("user_id", user.id).eq("is_active", true).not("face_descriptor", "is", null).maybeSingle();
     if (faceError) console.error("Facial profile query error:", faceError);
     setHasFacialProfile(!!facialProfile);
 
-    const today = new Date().toLocaleDateString("sv-SE");
-    const startOfDay = new Date(today + "T00:00:00").toISOString();
+    // Explicit Brazil timezone — matches server, prevents cross-midnight mismatch
+    const todayBrazil = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+    const startOfDay = new Date(todayBrazil + "T00:00:00-03:00").toISOString();
     const { data: records } = await supabase
       .from("time_records")
       .select("punch_type, recorded_at")
@@ -75,6 +77,20 @@ export default function PontoPage() {
     const lastType = records?.[0]?.punch_type as PunchType | undefined;
     const next = getNextPunchType(lastType || null);
     setNextPunch(next === "complete" ? "entry" : next);
+
+    // Auto-detect WiFi by IP
+    try {
+      const ipRes = await fetch("/api/meu-ip");
+      const { ip } = await ipRes.json();
+      const allowedIp = config?.allowed_ip;
+      if (!allowedIp) {
+        setWifiStatus("none"); // not configured — skip check
+      } else {
+        setWifiStatus(ip === allowedIp ? "ok" : "none");
+      }
+    } catch {
+      setWifiStatus("none");
+    }
   }, []);
 
   const checkLocation = useCallback(async (config: StoreConfig) => {
@@ -95,27 +111,32 @@ export default function PontoPage() {
   useEffect(() => { if (storeConfig) checkLocation(storeConfig); }, [storeConfig, checkLocation]);
 
   function handleStartPunch() {
-    if (!nextPunch || location.status !== "ok" || !wifiConfirmed) return;
-    if (hasFacialProfile && !faceResult) {
+    if (!nextPunch || location.status !== "ok") return;
+    if (hasFacialProfile === null) return; // Still loading profile status
+    if (hasFacialProfile) {
+      setFaceResult(null);
+      setFaceBlockedMsg(null);
       setShowFaceVerify(true);
       return;
     }
-    executePunch();
+    executePunch(); // No profile configured — admin hasn't set it up yet
   }
 
   function handleFaceResult(result: FaceVerifyResult) {
-    setFaceResult(result);
-    setShowFaceVerify(false);
-    if (result.verified || result.reason === "no_profile") {
+    if (result.verified === true) {
+      setFaceResult(result);
+      setShowFaceVerify(false);
+      setFaceBlockedMsg(null);
       executePunch(result);
+      return;
     }
-  }
-
-  function handleFaceSkip() {
-    setShowFaceVerify(false);
-    const r: FaceVerifyResult = { verified: false, reason: "no_profile" };
-    setFaceResult(r);
-    executePunch(r);
+    // Profile exists but has no stored descriptor
+    if (result.reason === "no_profile") {
+      setShowFaceVerify(false);
+      setFaceBlockedMsg("Perfil biométrico incompleto. Contacte o administrador para recadastrar sua foto.");
+      return;
+    }
+    // no_match / no_face / error: keep component visible so user can retry
   }
 
   async function executePunch(face?: FaceVerifyResult) {
@@ -134,7 +155,7 @@ export default function PontoPage() {
           gps_latitude: coords?.lat,
           gps_longitude: coords?.lon,
           gps_accuracy_meters: coords?.acc,
-          wifi_confirmed: wifiConfirmed,
+          wifi_confirmed: false, // server auto-detects by IP
           face_verified: faceVerified,
           face_similarity: faceSimilarity,
         }),
@@ -154,7 +175,7 @@ export default function PontoPage() {
     }
   }
 
-  const canPunch = location.status === "ok" && wifiConfirmed && !!nextPunch;
+  const canPunch = location.status === "ok" && !!nextPunch && hasFacialProfile !== null;
   const isIdle = punchState === "idle";
 
   return (
@@ -220,52 +241,61 @@ export default function PontoPage() {
         )}
       </div>
 
-      {/* Wi-Fi Checkbox Glass Panel */}
-      <label className={`glass-card rounded-2xl p-4 flex items-center gap-4 cursor-pointer transition-all duration-300 ${
-        wifiConfirmed ? "border-emerald-500/20 bg-emerald-500/[0.04]" : "border-white/[0.08] hover:bg-white/[0.02]"
+      {/* Wi-Fi — detecção automática por IP */}
+      <div className={`glass-card rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 ${
+        wifiStatus === "ok" ? "border-yellow-500/20 bg-yellow-500/[0.04]" : "border-white/[0.08]"
       }`}>
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors duration-300 ${
-          wifiConfirmed ? "bg-emerald-500/10 text-emerald-400" : "bg-white/5 text-slate-400"
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+          wifiStatus === "checking" ? "bg-white/5 text-slate-400"
+          : wifiStatus === "ok" ? "bg-yellow-500/10 text-yellow-400"
+          : "bg-white/5 text-slate-400"
         }`}>
-          <Wifi size={18} />
+          {wifiStatus === "checking"
+            ? <Loader2 size={18} className="animate-spin" />
+            : <Wifi size={18} />}
         </div>
         <div className="flex-1 min-w-0">
           <div className={`font-semibold text-xs tracking-wide uppercase ${
-            wifiConfirmed ? "text-emerald-400" : "text-slate-400"
+            wifiStatus === "ok" ? "text-yellow-400" : "text-slate-400"
           }`}>
-            Conexão Wi-Fi
+            Rede Wi-Fi
           </div>
-          <div className="text-sm text-slate-200 font-medium mt-0.5 leading-snug">
-            {wifiConfirmed ? "Wi-Fi local confirmado" : "Conectado na rede da loja"}
+          <div className="text-sm text-slate-200 font-medium mt-0.5">
+            {wifiStatus === "checking" ? "Verificando rede..."
+              : wifiStatus === "ok" ? "Rede da loja detectada"
+              : storeConfig?.allowed_ip ? "Rede externa detectada" : "Verificação não configurada"}
           </div>
-          <div className="text-xs text-slate-400 mt-0.5">
-            {storeConfig?.wifi_ssid ? `SSID: ${storeConfig.wifi_ssid}` : "Confirme sua rede"}
-          </div>
+          {storeConfig?.wifi_ssid && (
+            <div className="text-xs text-slate-500 mt-0.5">{storeConfig.wifi_ssid}</div>
+          )}
         </div>
-        <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 shrink-0 ${
-          wifiConfirmed ? "bg-emerald-500 border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)]" : "border-white/20 bg-white/[0.03]"
-        }`}>
-          {wifiConfirmed && <CheckCircle2 size={16} className="text-white" strokeWidth={2.5} />}
-          <input type="checkbox" checked={wifiConfirmed} onChange={(e) => setWifiConfirmed(e.target.checked)} className="sr-only" />
-        </div>
-      </label>
+        {wifiStatus === "ok" && <CheckCircle2 size={18} className="text-yellow-400 shrink-0" />}
+      </div>
 
-      {/* Face verification result badge */}
-      {faceResult && !showFaceVerify && (
-        <div className={`glass-card rounded-2xl p-4 flex items-center gap-4 border transition-all duration-300 ${
-          faceResult.verified ? "border-emerald-500/20 bg-emerald-500/[0.04]" : "border-white/[0.08]"
-        }`}>
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${faceResult.verified ? "bg-emerald-500/10 text-emerald-400" : "bg-white/5 text-slate-400"}`}>
+      {/* Face verification success badge */}
+      {faceResult?.verified && !showFaceVerify && (
+        <div className="glass-card rounded-2xl p-4 flex items-center gap-4 border border-emerald-500/20 bg-emerald-500/[0.04] transition-all duration-300">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-emerald-500/10 text-emerald-400">
             <ScanFace size={18} />
           </div>
           <div className="min-w-0">
             <div className="font-semibold text-xs tracking-wide uppercase text-slate-400">Reconhecimento Facial</div>
-            <div className={`font-medium text-sm mt-0.5 ${faceResult.verified ? "text-emerald-400" : "text-slate-200"}`}>
-              {faceResult.verified
-                ? `Identidade Confirmada (${Math.round((faceResult.similarity || 0) * 100)}%)`
-                : faceResult.reason === "no_profile" ? "Sem perfil facial — ponto liberado"
-                : "Verificação facial pulada"}
+            <div className="font-medium text-sm mt-0.5 text-emerald-400">
+              Identidade Confirmada ({Math.round((faceResult.similarity || 0) * 100)}%)
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Face profile incomplete error */}
+      {faceBlockedMsg && !showFaceVerify && (
+        <div className="glass-card rounded-2xl p-4 flex items-center gap-4 border border-amber-500/20 bg-amber-500/[0.04]">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-amber-500/10 text-amber-400">
+            <ScanFace size={18} />
+          </div>
+          <div className="min-w-0">
+            <div className="font-semibold text-xs tracking-wide uppercase text-slate-400">Reconhecimento Facial</div>
+            <div className="font-medium text-sm mt-0.5 text-amber-300">{faceBlockedMsg}</div>
           </div>
         </div>
       )}
@@ -273,7 +303,7 @@ export default function PontoPage() {
       {/* Face Verify Component */}
       {showFaceVerify && userId && isIdle && (
         <div className="glass-card rounded-3xl p-4 border border-white/[0.08]">
-          <FaceVerify userId={userId} onResult={handleFaceResult} onSkip={handleFaceSkip} />
+          <FaceVerify userId={userId} onResult={handleFaceResult} />
         </div>
       )}
 
@@ -313,7 +343,7 @@ export default function PontoPage() {
                 <><Loader2 size={18} className="animate-spin" /><span>Registrando Ponto...</span></>
               ) : (
                 <>
-                  {hasFacialProfile && !faceResult ? <ScanFace size={18} /> : <Clock size={18} />}
+                  {hasFacialProfile ? <ScanFace size={18} /> : <Clock size={18} />}
                   <span>{nextPunch ? PUNCH_TYPE_LABELS[nextPunch] : "Carregando..."}</span>
                 </>
               )}
@@ -323,9 +353,9 @@ export default function PontoPage() {
       )}
 
       {/* Hints & Instructions */}
-      {!wifiConfirmed && isIdle && !showFaceVerify && (
+      {location.status !== "ok" && isIdle && !showFaceVerify && (
         <div className="glass-card border-amber-500/15 bg-amber-500/[0.02] rounded-xl p-3 text-center text-xs text-amber-300/90 font-medium">
-          Confirme a conexão Wi-Fi da loja para liberar o registro
+          Aguardando GPS para liberar o registro
         </div>
       )}
       {location.status === "error" && (

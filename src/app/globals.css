@@ -6,6 +6,14 @@
 
 @layer base {
   :root {
+    /* ── BRAND COLORS — edit here to change the theme ─────────────────────
+       gold  : #EAB308  |  green : #22C55E  |  black : #07080A
+       ──────────────────────────────────────────────────────────────────── */
+    --brand-gold:       234 179 8;   /* #EAB308 — rgb for opacity support   */
+    --brand-green:       34 197 94;  /* #22C55E                              */
+    --brand-black:        7   8 10;  /* #07080A                              */
+
+    /* shadcn/ui semantic tokens — driven by brand vars above */
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
 
@@ -15,8 +23,8 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 142.1 70.6% 45.3%;
-    --primary-foreground: 144.9 80.7% 9%;
+    --primary: 45 93% 47%;          /* gold — was 142 (emerald)             */
+    --primary-foreground: 0 0% 5%;
 
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
@@ -32,7 +40,7 @@
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 142.1 70.6% 45.3%;
+    --ring: 45 93% 47%;             /* gold ring                            */
 
     --radius: 1rem;
   }
@@ -43,9 +51,42 @@
     @apply border-border;
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
-  body { 
-    @apply bg-[#080d1a] text-foreground min-h-screen overflow-x-hidden selection:bg-emerald-500/30 selection:text-emerald-200;
+  body {
+    @apply bg-[#07080A] text-foreground min-h-screen overflow-x-hidden;
+    -webkit-tap-highlight-color: transparent;
   }
+  ::selection {
+    background-color: rgb(var(--brand-gold) / 0.25);
+    color: #fff;
+  }
+}
+
+/* ── Brand color utilities ─────────────────────────────────────────────────
+   Source of truth for colors. Change the hex values here to update the
+   entire theme. These classes work via CSS hot-reload (no server restart).
+   ────────────────────────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Text */
+  .text-brand-gold       { color: #EAB308; }
+  .text-brand-gold-light { color: #FDE047; }
+  .text-brand-green      { color: #22C55E; }
+
+  /* Background */
+  .bg-brand-gold         { background-color: #EAB308; }
+  .bg-brand-gold-dim     { background-color: rgba(234, 179, 8, 0.12); }
+  .bg-brand-green        { background-color: #22C55E; }
+  .bg-brand-green-dim    { background-color: rgba(34, 197, 94, 0.12); }
+  .bg-brand-black        { background-color: #07080A; }
+
+  /* Border */
+  .border-brand-gold     { border-color: #EAB308; }
+  .border-brand-gold-dim { border-color: rgba(234, 179, 8, 0.25); }
+  .border-brand-green    { border-color: #22C55E; }
+
+  /* Gradient stops */
+  .from-brand-gold       { --tw-gradient-from: #EAB308; }
+  .to-brand-gold-light   { --tw-gradient-to: #FDE047; }
+  .from-brand-green      { --tw-gradient-from: #22C55E; }
 }
 
 /* Glassmorphism Utilities */
@@ -74,74 +115,72 @@
 
   .glass-input:focus {
     background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(16, 185, 129, 0.5);
-    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+    border-color: rgb(var(--brand-gold) / 0.5);
+    box-shadow: 0 0 0 2px rgb(var(--brand-gold) / 0.12);
     outline: none;
   }
 
-  .neon-glow-green {
-    box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+  .neon-glow-gold {
+    box-shadow: 0 0 20px rgb(var(--brand-gold) / 0.2);
   }
 
-  .neon-glow-blue {
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+  .neon-glow-green {
+    box-shadow: 0 0 20px rgb(var(--brand-green) / 0.15);
   }
 
   .text-glow {
     text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
   }
 
+  .text-glow-gold {
+    text-shadow: 0 0 14px rgb(var(--brand-gold) / 0.5);
+  }
+
   .text-glow-green {
-    text-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+    text-shadow: 0 0 12px rgb(var(--brand-green) / 0.4);
   }
 }
 
 /* Background Aurora Lights */
 .aurora-bg {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: 0; left: 0; right: 0; bottom: 0;
   z-index: -1;
   overflow: hidden;
-  background-color: #070a13;
+  background-color: rgb(var(--brand-black));
   pointer-events: none;
 }
 
+/* Green glow — top-left */
 .aurora-glow-1 {
   position: absolute;
-  top: -10%;
-  left: -10%;
-  width: 70%;
-  height: 70%;
+  top: -10%; left: -10%;
+  width: 70%; height: 70%;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(16, 185, 129, 0.07) 0%, rgba(16, 185, 129, 0) 70%);
+  background: radial-gradient(circle, rgb(var(--brand-green) / 0.08) 0%, transparent 70%);
   filter: blur(80px);
   animation: float 20s ease-in-out infinite alternate;
 }
 
+/* Gold glow — bottom-right */
 .aurora-glow-2 {
   position: absolute;
-  bottom: -10%;
-  right: -10%;
-  width: 75%;
-  height: 75%;
+  bottom: -10%; right: -10%;
+  width: 75%; height: 75%;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.08) 0%, rgba(99, 102, 241, 0) 70%);
+  background: radial-gradient(circle, rgb(var(--brand-gold) / 0.07) 0%, transparent 70%);
   filter: blur(80px);
   animation: float 25s ease-in-out infinite alternate-reverse;
 }
 
+/* Subtle center depth */
 .aurora-glow-3 {
   position: absolute;
-  top: 40%;
-  left: 50%;
+  top: 40%; left: 50%;
   transform: translate(-50%, -50%);
-  width: 50%;
-  height: 50%;
+  width: 50%; height: 50%;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(249, 115, 22, 0.03) 0%, rgba(249, 115, 22, 0) 70%);
+  background: radial-gradient(circle, rgb(var(--brand-green) / 0.03) 0%, transparent 70%);
   filter: blur(60px);
 }
 

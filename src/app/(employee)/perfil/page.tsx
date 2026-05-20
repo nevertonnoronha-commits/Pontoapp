@@ -55,7 +55,7 @@ export default function PerfilPage() {
 
       {/* Info card */}
       <div className="glass-card rounded-3xl border border-white/[0.08] divide-y divide-white/[0.05] overflow-hidden">
-        <div className="flex items-center gap-4 px-5 py-4.5">
+        <div className="flex items-center gap-4 px-5 py-4">
           <div className="w-10 h-10 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl flex items-center justify-center shrink-0">
             <Mail size={18} />
           </div>
@@ -66,7 +66,7 @@ export default function PerfilPage() {
         </div>
 
         {profile?.job_title && (
-          <div className="flex items-center gap-4 px-5 py-4.5">
+          <div className="flex items-center gap-4 px-5 py-4">
             <div className="w-10 h-10 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-xl flex items-center justify-center shrink-0">
               <Briefcase size={18} />
             </div>
@@ -77,7 +77,7 @@ export default function PerfilPage() {
           </div>
         )}
 
-        <div className="flex items-center gap-4 px-5 py-4.5">
+        <div className="flex items-center gap-4 px-5 py-4">
           <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center shrink-0">
             <Clock size={18} />
           </div>
@@ -88,7 +88,7 @@ export default function PerfilPage() {
         </div>
 
         {profile?.salary ? (
-          <div className="flex items-center gap-4 px-5 py-4.5">
+          <div className="flex items-center gap-4 px-5 py-4">
             <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl flex items-center justify-center shrink-0">
               <DollarSign size={18} />
             </div>

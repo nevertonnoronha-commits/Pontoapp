@@ -5,10 +5,10 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "PontoApp",
-  description: "Sistema de controle de ponto",
+  title: "Camaleão Ponto",
+  description: "Sistema de controle de ponto Camaleão",
   manifest: "/manifest.json",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "PontoApp" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Camaleão" },
 };
 
 export const viewport: Viewport = {
@@ -22,9 +22,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR">
       <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <link rel="icon" href="/icons/iconeapp.ico" sizes="any" />
+      <link rel="apple-touch-icon" href="/icons/iconeapp.ico" />
       </head>
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className} suppressHydrationWarning>{children}</body>
     </html>
   );
 }

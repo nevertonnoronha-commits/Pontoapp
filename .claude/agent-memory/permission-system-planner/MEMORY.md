@@ -1,0 +1,5 @@
+- [Clientes Supabase](arch_supabase_clients.md) — Onde vive cada client (server/client/admin), quando usar cada um, regra do service_role
+- [Middleware proxy.ts](arch_middleware.md) — Fluxo completo, o que não pode ser tocado, como cartorio_ativo é lido
+- [Sidebar do Dashboard](arch_sidebar.md) — DashboardSidebar é client component; permissões devem entrar pelo layout.tsx como prop
+- [Painel Admin — convenções](arch_admin_panel.md) — Padrão de páginas, Server Actions com assertSuperAdmin, revalidatePath
+- [Next.js 16 — APIs confirmadas](arch_nextjs_version.md) — cookies() async, use cache requer cacheComponents (não habilitado), unstable_cache deprecated

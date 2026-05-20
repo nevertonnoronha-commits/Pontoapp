@@ -10,6 +10,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // ─── BRAND COLORS — edit here to change the theme ───────────────────
+        brand: {
+          gold:  "#EAB308", // Camaleão dourado
+          "gold-light": "#FDE047",
+          "gold-dim": "rgba(234,179,8,0.12)",
+          green: "#22C55E", // Camaleão verde
+          "green-dim": "rgba(34,197,94,0.12)",
+          black: "#07080A", // Camaleão preto
+        },
+        // ────────────────────────────────────────────────────────────────────
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

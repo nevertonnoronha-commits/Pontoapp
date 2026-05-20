@@ -25,7 +25,7 @@ export default async function FuncionariosPage() {
         </div>
         <Link
           href="/funcionarios/novo"
-          className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 shadow-[0_4px_20px_rgba(16,185,129,0.15)] border border-emerald-400/10"
+          className="inline-flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 shadow-[0_4px_20px_rgba(234,179,8,0.2)]"
         >
           <UserPlus size={16} />
           Novo Funcionário
@@ -42,7 +42,7 @@ export default async function FuncionariosPage() {
             <p className="text-slate-400 text-sm mt-1">Adicione o primeiro funcionário para começar.</p>
             <Link
               href="/funcionarios/novo"
-              className="mt-4 inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300"
+              className="mt-4 inline-flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300"
             >
               <UserPlus size={16} />
               Adicionar funcionário

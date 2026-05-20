@@ -26,6 +26,7 @@ export const registerPunchSchema = z.object({
 export const storeConfigSchema = z.object({
   store_name: z.string().min(1, "Nome da loja é obrigatório"),
   wifi_ssid: z.string().optional(),
+  allowed_ip: z.string().optional().nullable(),
   gps_latitude: z
     .number()
     .min(-90)

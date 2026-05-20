@@ -113,6 +113,23 @@ export default function FuncionarioFormPage() {
     }
   }
 
+  async function saveFacialProfile(userId: string, faceDescriptor: number[] | null, photoUrl: string) {
+    const res = await fetch("/api/admin/facial-profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        face_descriptor: faceDescriptor,
+        photo_url: photoUrl,
+        is_active: faceDescriptor !== null,
+      }),
+    });
+    if (!res.ok) {
+      const json = await res.json();
+      throw new Error(json.error || "Erro ao salvar perfil facial.");
+    }
+  }
+
   async function uploadFacePhoto(userId: string, file: File) {
     setFaceStatus("training");
     const fileName = `${userId}/profile-${Date.now()}.jpg`;
@@ -122,13 +139,11 @@ export default function FuncionarioFormPage() {
 
     if (uploadError || !uploadData) {
       setFaceStatus("error");
-      setError("Erro ao enviar foto: " + (uploadError?.message || "bucket não encontrado"));
+      setError("Erro ao enviar foto: " + (uploadError?.message || "verifique o bucket face-photos no Supabase Storage"));
       return;
     }
 
     const { data: { publicUrl } } = supabase.storage.from("face-photos").getPublicUrl(uploadData.path);
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data: adminData } = await supabase.from("users").select("organization_id").eq("id", user!.id).single();
 
     try {
       const faceapi = await import("face-api.js");
@@ -143,29 +158,53 @@ export default function FuncionarioFormPage() {
       img.src = URL.createObjectURL(file);
       await new Promise<void>((res) => { img.onload = () => res(); });
       const detection = await faceapi
-        .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.3 }))
+        .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.1, inputSize: 512 }))
         .withFaceLandmarks().withFaceDescriptor();
 
-      await supabase.from("facial_profiles").upsert({
-        user_id: userId,
-        organization_id: adminData?.organization_id,
-        face_descriptor: detection ? Array.from(detection.descriptor) : null,
-        photo_url: publicUrl,
-        trained_at: new Date().toISOString(),
-        is_active: true,
-      }, { onConflict: "user_id" });
-
+      const descriptor = detection ? Array.from(detection.descriptor) : null;
+      await saveFacialProfile(userId, descriptor, publicUrl);
+      setExistingPhotoUrl(publicUrl);
       setFaceStatus(detection ? "ok" : "photo_only");
-    } catch {
-      await supabase.from("facial_profiles").upsert({
-        user_id: userId,
-        organization_id: adminData?.organization_id,
-        face_descriptor: null,
-        photo_url: publicUrl,
-        trained_at: new Date().toISOString(),
-        is_active: true,
-      }, { onConflict: "user_id" });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao processar foto.");
       setFaceStatus("photo_only");
+    }
+  }
+
+  async function reprocessarFoto() {
+    if (!existingPhotoUrl) return;
+    setFaceStatus("training");
+    setError("");
+    try {
+      const faceapi = await import("face-api.js");
+      if (!faceapi.nets.tinyFaceDetector.isLoaded) {
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        ]);
+      }
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = existingPhotoUrl + "?t=" + Date.now();
+      await new Promise<void>((res, rej) => {
+        img.onload = () => res();
+        img.onerror = rej;
+      });
+
+      const detection = await faceapi
+        .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.1, inputSize: 512 }))
+        .withFaceLandmarks().withFaceDescriptor();
+
+      const descriptor = detection ? Array.from(detection.descriptor) : null;
+      await saveFacialProfile(id, descriptor, existingPhotoUrl);
+      setFaceStatus(detection ? "ok" : "photo_only");
+      if (!detection) {
+        setError("Rosto não detectado. Envie uma nova foto frontal, bem iluminada, com o rosto visível.");
+      }
+    } catch (e) {
+      setFaceStatus("photo_only");
+      setError("Erro ao reprocessar: " + (e instanceof Error ? e.message : "tente novamente."));
     }
   }
 
@@ -362,9 +401,21 @@ export default function FuncionarioFormPage() {
           </div>
         </div>
         {faceStatus === "photo_only" && (
-          <div className="bg-amber-950/40 border border-amber-500/30 rounded-xl px-4 py-3 text-xs text-amber-200 flex items-start gap-2">
-            <AlertCircle size={14} className="shrink-0 mt-0.5 text-amber-400" />
-            Rosto não detectado. Use foto frontal bem iluminada para ativar o reconhecimento.
+          <div className="bg-amber-950/40 border border-amber-500/30 rounded-xl px-4 py-3 text-xs text-amber-200 space-y-2">
+            <div className="flex items-start gap-2">
+              <AlertCircle size={14} className="shrink-0 mt-0.5 text-amber-400" />
+              <span>Rosto não detectado na foto. Use foto frontal, bem iluminada, com o rosto bem visível e enquadrado.</span>
+            </div>
+            {existingPhotoUrl && (
+              <button
+                type="button"
+                onClick={reprocessarFoto}
+                className="w-full flex items-center justify-center gap-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-200 rounded-lg py-2 text-xs font-medium transition-colors"
+              >
+                <ScanFace size={13} />
+                Tentar detectar rosto novamente
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -422,7 +473,7 @@ export default function FuncionarioFormPage() {
           Cancelar
         </button>
         <button onClick={handleSave} disabled={saving || (isNew && !password)}
-          className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:from-emerald-800 disabled:to-teal-800 text-white font-semibold rounded-xl py-3 text-sm shadow-[0_0_20px_rgba(16,185,129,0.25)] hover:shadow-[0_0_25px_rgba(16,185,129,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          className="flex-1 flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-black font-semibold rounded-xl py-3 text-sm shadow-[0_0_20px_rgba(234,179,8,0.25)] hover:shadow-[0_0_25px_rgba(234,179,8,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed">
           {saving ? (
             <><Loader2 size={16} className="animate-spin" />Salvando...</>
           ) : (
