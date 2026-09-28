@@ -23,7 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR">
       <head>
         <link rel="icon" href="/icons/iconeapp.ico" sizes="any" />
-      <link rel="apple-touch-icon" href="/icons/iconeapp.ico" />
+      <link rel="apple-touch-icon" href="/icons/apple-icon.png" />
       </head>
       <body className={inter.className} suppressHydrationWarning>{children}</body>
     </html>
